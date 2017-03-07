@@ -3,8 +3,7 @@ const co = require('co')
 const agent = require('superagent')
 const uuid = require('uuid/v4')
 
-const Sender = require('./sender')
-const IlpCore = require('ilp-core')
+const ILQP = require('./ilqp')
 
 /**
  * @module SPSP
@@ -38,14 +37,20 @@ const _querySPSP = function * (receiver) {
 
 const query = co.wrap(_querySPSP)
 
-const _quote = function * ({ plugin, spsp, sourceAmount, destinationAmount, ilp }) {
-  if (!plugin) throw new Error('missing plugin')
-  if (!spsp.destination_account) throw new Error('missing destination account')
-  if (!spsp.maximum_destination_amount) throw new Error('missing maximum destination amount')
-  if (!spsp.minimum_destination_amount) throw new Error('missing minimum destination amount')
+const _quote = function * ({
+  plugin,
+  spsp,
+  sourceAmount,
+  destinationAmount,
+  ilp
+}) {
+  assert(plugin, 'missing plugin')
+  assert(typeof spsp === 'object', 'spsp must be an object')
+  assert(!spsp.destination_account, 'missing destination account')
+  assert(!spsp.maximum_destination_amount, 'missing maximum destination amount')
+  assert(!spsp.minimum_destination_amount, 'missing minimum destination amount')
 
-  const client = new IlpCore.Client(plugin, ilp)
-  const quote = yield client.quote({
+  const quote = yield ILQP.quote(plugin, {
     destinationAddress: spsp.destination_account,
     destinationAmount,
     sourceAmount

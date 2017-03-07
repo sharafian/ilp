@@ -2,6 +2,9 @@
 
 const Packet = require('./packet')
 const cryptoHelper = require('../utils/crypto')
+const uuid4 = require('uuid')
+const cc = require('../utils/condition')
+const debug = require('debug')('ilp:transport')
 
 function createPacketAndCondition ({
   destinationAmount,
@@ -9,9 +12,8 @@ function createPacketAndCondition ({
   secret,
   data,
   uuid,
-  expiresAt,
-  protocol
-}) {
+  expiresAt
+}, protocol) {
   assert(typeof destinationAmount === 'string', 'destinationAmount must be a string')
   assert(typeof destinationAccount === 'string', 'destinationAccount must be a string')
   assert(Buffer.isBuffer(secret), 'secret must be a buffer')
@@ -28,7 +30,7 @@ function createPacketAndCondition ({
   // TODO: should this use the 'ni:' format or just be base64url?
   const condition = cryptoHelper.hmacJsonForPskCondition(
     packet,
-    sharedSecret)
+    secret)
 
   return {
     packet,
@@ -40,6 +42,69 @@ function _reject (plugin, id, reason) {
   return plugin
     .rejectIncomingTransfer(id, reason)
     .then(() => Promise.reject(new Error(reason)))
+}
+
+function listen (plugin, {
+  // TODO: best way to do receiverId?
+  id,
+  secret,
+  allowOverPayment
+}, callback, protocol) {
+  assert(plugin && typeof plugin === 'object', 'plugin must be an object')
+  assert(typeof callback === 'function', 'callback must be a function')
+  assert(Buffer.isBuffer(shared), 'opts.secret must be a buffer')
+
+  // TODO: do this async
+  // yield plugin.connect()
+  const receiverId = id || ''
+  const receiverSecret = cryptoHelper.getPskSharedSecret(secret, receiverId)
+
+  /**
+   * When we receive a transfer notification, check the transfer
+   * and try to fulfill the condition (which will only work if
+   * it corresponds to a request or shared secret we created)
+   * Calls the `reviewPayment` callback before fulfillingthe.
+   *
+   * Note return values are only for testing
+   */
+  function * autoFulfillCondition (transfer) {
+    yield validateTransfer({
+      plugin,
+      transfer,
+      receiverId,
+      protocol
+    })
+
+    const preimage = cryptoHelper.hmacJsonForPskCondition(
+      Packet.getFromTransfer(transfer),
+      receiverSecret)
+
+    if (transfer.executionCondition !== cc.toConditionUri(preimage)) {
+      debug('notified of transfer where executionCondition does not' +
+        ' match the one we generate.' +
+        ' executionCondition=' + transfer.executionCondition +
+        ' our condition=' + cc.toConditionUri(preimage))
+      return
+    }
+
+    const decryptedData = cryptoHelper.aesDecryptObject(data, receiverSecret)
+    const fulfillment = cc.toFulfillmentUri(conditionPreimage)
+
+    callback({
+      transfer: transfer,
+      data: decryptedData,
+      destinationAccount: address,
+      destinationAmount: amount,
+      fulfill: function () {
+        return fulfillCondition(transfer.id, fulfillment)
+      }
+    })
+  }
+  
+  plugin.on('incoming_prepare', co.wrap(autoFulfillCondition))
+  return function () {
+    plugin.removeListener('incoming_prepare', autoFulfillCondition)
+  }
 }
 
 function validateTransfer ({
@@ -102,4 +167,11 @@ function validateTransfer ({
     debug('notified of transfer with expired packet:', transfer)
     return _reject(transfer.id, 'expired')
   }
+}
+
+module.exports = {
+  _reject,
+  createPacketAndCondition,
+  validateTransfer,
+  listen
 }
