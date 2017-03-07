@@ -1,11 +1,12 @@
 'use strict'
 
+const co = require('co')
 const Packet = require('./packet')
-const { xor, omitUndefined } = require('./utils')
+const { xor, omitUndefined } = require('../utils')
 const debug = require('debug')('ilp:ilqp')
 const moment = require('moment')
 
-_sendAndReceiveMessage (plugin, message) {
+function _sendAndReceiveMessage (plugin, message) {
   const id = message.data.id = uuid()
   debug('sending message:', JSON.stringify(reqMessage))
 
@@ -28,7 +29,7 @@ _sendAndReceiveMessage (plugin, message) {
   })
 }
 
-_getQuote (plgin, connector, quoteQuery) {
+function _getQuote (plgin, connector, quoteQuery) {
   const prefix = plugin.getInfo().prefix
 
   debug('remote quote connector=' + connector, 'query=' + JSON.stringify(quoteQuery))
@@ -47,7 +48,7 @@ _getQuote (plgin, connector, quoteQuery) {
   })
 }
 
-_getCheaperQuote (quote1, quote2) {
+function _getCheaperQuote (quote1, quote2) {
   const source1 = new BigNumber(quote1.source_amount)
   const dest1 = new BigNumber(quote1.destination_amount)
 

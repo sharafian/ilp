@@ -17,7 +17,7 @@ const cryptoHelper = require('../utils/crypto')
   * @return {Object} Payment request
   */
 function createPacketAndCondition (rawParams) {
-  const params = { ...rawParams, secret: rawParams.sharedSecret }
+  const params = Object.assign({}, rawParams, { secret: rawParams.sharedSecret })
   return Transport.createPacketAndCondition(params, 'psk')
 }
 
@@ -44,7 +44,7 @@ function generateParams ({
   const token = cryptoHelper.getPskToken(secret)
   return {
     destinationAccount: destinationAccount + '.' + receiverId + token,
-    sharedSecret: base64url(cryptoHelper.getPskSharedSecret(secret, token)
+    sharedSecret: base64url(cryptoHelper.getPskSharedSecret(secret, token))
   }
 }
 

@@ -23,7 +23,7 @@ function createPacketAndCondition ({
   const packet = Packet.serialize({
     amount: params.destinationAmount,
     address: address,
-    expiresAt: expiresAt
+    expiresAt: expiresAt,
     data: blob
   })
 
@@ -151,14 +151,14 @@ function validateTransfer ({
 
   if (transferAmount.lessThan(amount)) {
     debug('notified of transfer amount smaller than packet amount:' +
-      ' transfer=' + transfer.amount
+      ' transfer=' + transfer.amount +
       ' packet=' + amount)
     throw new Error('insufficient')
   }
 
   if (!allowOverPayment && transferAmount.greaterThan(amount)) {
     debug('notified of transfer amount larger than packet amount:' +
-      ' transfer=' + transfer.amount
+      ' transfer=' + transfer.amount +
       ' packet=' + amount)
     throw new Error('overpayment')
   }
