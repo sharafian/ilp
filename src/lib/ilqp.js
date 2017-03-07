@@ -2,15 +2,22 @@
 
 const co = require('co')
 const Packet = require('./packet')
-const { xor, omitUndefined } = require('../utils')
+const { startsWith, wait, xor, omitUndefined } = require('../utils')
 const debug = require('debug')('ilp:ilqp')
 const moment = require('moment')
+const BigNumber = require('bignumber.js')
+const uuid = require('uuid')
 
-function _sendAndReceiveMessage (plugin, message) {
-  const id = message.data.id = uuid()
-  debug('sending message:', JSON.stringify(reqMessage))
+function _sendAndReceiveMessage ({
+  plugin,
+  method,
+  message,
+  timeout
+}) {
+  const id = message.data.id = message.data.id || uuid()
+  debug('sending message:', JSON.stringify(message))
 
-  return new Promise((resolve, reject) => {
+  const responded = new Promise((resolve, reject) => {
     function onIncomingMessage (response) {
       debug('got incoming message:', JSON.stringify(response))
       const data = response.data
@@ -18,7 +25,8 @@ function _sendAndReceiveMessage (plugin, message) {
       if (!data || data.id !== id) return
       if (data.method === 'error') reject(data.data.message)
 
-      if (data.method === 'quote_response') {
+      if (data.method === method) {
+        debug('response of type', method)
         plugin.removeListener('incoming_message', onIncomingMessage)
         resolve(response)
       }
@@ -27,22 +35,38 @@ function _sendAndReceiveMessage (plugin, message) {
     // TODO: optimize to not add a listener each time?
     plugin.on('incoming_message', onIncomingMessage)
   })
+
+  return Promise.race([
+    plugin.sendMessage(message).then(() => responded),
+    wait(timeout || 5000)
+      .then(() => { throw new Error('quote request timed out') })
+  ])
 }
 
-function _getQuote (plgin, connector, quoteQuery) {
+function _getQuote ({
+  plugin,
+  connector,
+  quoteQuery,
+  timeout
+}) {
   const prefix = plugin.getInfo().prefix
 
   debug('remote quote connector=' + connector, 'query=' + JSON.stringify(quoteQuery))
-  return _sendAndReceiveMessage(plugin, {
-    ledger: prefix,
-    account: connector,
-    data: {
-      method: 'quote_request',
-      data: quoteQuery
+  return _sendAndReceiveMessage({
+    plugin: plugin,
+    method: 'quote_response',
+    timeout: timeout,
+    message: {
+      ledger: prefix,
+      account: connector,
+      data: {
+        method: 'quote_request',
+        data: quoteQuery
+      }
     }
   }).then((response) => {
     return response.data.data
-  }).catch((e) => {
+  }).catch((err) => {
     // TODO: should this do something else about errors?
     debug('ignoring remote quote error:', err.message)
   })
@@ -81,9 +105,10 @@ function * quote (plugin, {
   destinationExpiryDuration,
   destinationPrecision,
   destinationScale,
-  connectors
+  connectors,
+  timeout
 }) {
-  if (xor(sourceAmount, destinationAmount)) {
+  if (!xor(sourceAmount, destinationAmount)) {
     throw new Error('should provide source or destination amount but not both'
       + ' ' + JSON.stringify({ sourceAmount, destinationAmount }))
   }
@@ -113,9 +138,9 @@ function * quote (plugin, {
   const quoteConnectors = connectors || plugin.getInfo().connectors
   debug('quoting', amount, 'via', quoteConnectors)
 
-  const quotes = yield quoteConnectors.map((connector) => {
-    return _getQuote(plugin, connector, quoteQuery)
-  }).filter((a) => (a !== undefined))
+  const quotes = (yield quoteConnectors.map((connector) => {
+    return _getQuote({ plugin, connector, quoteQuery, timeout })
+  })).filter((a) => (a !== undefined))
 
   // TODO: should this return an error?
   if (quotes.length === 0) {
@@ -124,15 +149,15 @@ function * quote (plugin, {
   }
 
   const bestQuote = quotes.reduce(_getCheaperQuote)
-  debug('got best quote from connector:', JSON.stringifiy(bestQuote))
+  debug('got best quote from connector:', JSON.stringify(bestQuote))
   
   return omitUndefined({
-    sourceAmount: bestQuote.source_amount,
-    destinationAmount: bestQuote.destination_amount,
+    sourceAmount: sourceAmount || bestQuote.source_amount,
+    destinationAmount: destinationAmount || bestQuote.destination_amount,
     connectorAccount: bestQuote.source_connector_account,
     sourceExpiryDuration: bestQuote.source_expiry_duration,
     // current time plus sourceExpiryDuration, for convenience
-    expiresAt: moment().add(sourceExpiryDuration, 'seconds').format()
+    expiresAt: moment().add(sourceExpiryDuration || 10, 'seconds').format()
   })
 }
 

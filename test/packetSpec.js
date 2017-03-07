@@ -4,7 +4,7 @@ const chai = require('chai')
 const assert = chai.assert
 const Packet = require('..').Packet
 
-describe.only('Packet', function () {
+describe('Packet', function () {
   beforeEach(function () {
     this.packet = {
       ilp_header: {

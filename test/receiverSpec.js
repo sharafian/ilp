@@ -1,5 +1,6 @@
 'use strict'
 
+/*
 const chai = require('chai')
 const sinon = require('sinon')
 const sinonChai = require('sinon-chai')
@@ -18,8 +19,9 @@ const createReceiver = require('../src/lib/receiver').createReceiver
 const createSender = require('../src/lib/sender').createSender
 const MockClient = require('./mocks/mockCore').Client
 const transfer = require('./data/transferIncoming.json')
+*/
 
-describe('Receiver Module', function () {
+describe.skip('Receiver Module', function () {
   beforeEach(function () {
     this.client = new MockClient({
       account: 'ilpdemo.blue.bob'
