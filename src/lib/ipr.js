@@ -16,11 +16,11 @@ const cryptoHelper = require('../utils/crypto')
   *
   * @return {Object} Payment request
   */
-function createPacketAndCondition (rawParams) {
+function createPacketAndCondition (params) {
   return Transport.createPacketAndCondition(params, 'ipr')
 }
 
-function listen (plugin, rawParams, callback) {
+function listen (plugin, params, callback) {
   return Transport.listen(plugin, params, callback, 'ipr')
 }
 

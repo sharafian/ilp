@@ -13,13 +13,6 @@ function getPskToken () {
   return crypto.randomBytes(16)
 }
 
-
-function hmacJsonForIprCondition (hmacKey, obj) {
-  const iprConditionKey = hmac(hmacKey, IPR_CONDITION_STRING)
-  const jsonString = stringify(obj)
-  return hmac(iprConditionKey, jsonString)
-}
-
 function getReceiverId (hmacKey) {
   return hmac(hmacKey, IPR_RECEIVER_ID_STRING).slice(0, 8)
 }
@@ -76,7 +69,6 @@ module.exports = {
   aesEncryptObject,
   aesDecryptObject,
   getPskToken,
-  hmacJsonForIprCondition,
   getReceiverId,
   getPskSharedSecret
 }

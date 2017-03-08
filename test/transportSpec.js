@@ -40,23 +40,46 @@ describe('Transport', function () {
         id: 'ee39d171-cdd5-4268-9ec8-acc349666055',
         expiresAt: moment().format()
       }
+
+      this.validate = (result) => {
+        const { address, data, amount } = ILP.Packet.parse(result.packet)
+
+        // the data is still encrypted, so we can't check it from just parsing
+        assert.isString(data.blob)
+        assert.match(address, new RegExp(this.params.destinationAccount))
+        assert.equal(amount, this.params.destinationAmount)
+      }
     })
 
     it('should create a valid packet and condition', function () {
       const result = Transport.createPacketAndCondition(this.params, 'psk')
-      const { address, amount, data } = ILP.Packet.parse(result.packet)
-
-      // the data is still encrypted, so we can't check it from just parsing
-      assert.isString(data.blob)
-      assert.match(address, new RegExp(this.params.destinationAccount))
-      assert.equal(amount, this.params.destinationAmount)
+      this.validate(result)
     })
 
     it('should generate an id if one isn\'t provided', function () {
       delete this.params.id
       const result = Transport.createPacketAndCondition(this.params, 'psk')
-      const { address } = ILP.Packet.parse(result.packet)
-      assert.match(address, new RegExp(this.params.destinationAccount))
+      this.validate(result)
+
+      const parsed = ILP.Packet.parse(result.packet)
+      assert.match(parsed.address, new RegExp(this.params.destinationAccount))
+    })
+
+    describe('IPR', function () {
+      it('should create packet and condition', function () {
+        const result = ILP.IPR.createPacketAndCondition(this.params)
+        this.validate(result)
+      })
+    })
+
+    describe('PSK', function () {
+      it('should create packet and condition', function () {
+        // one field name is different
+        this.params.sharedSecret = this.params.secret
+
+        const result = ILP.PSK.createPacketAndCondition(this.params)
+        this.validate(result)
+      })
     })
   })
 
@@ -82,6 +105,20 @@ describe('Transport', function () {
       assert.equal(this.plugin.listenerCount('incoming_prepare'), 1)
       res()
       assert.equal(this.plugin.listenerCount('incoming_prepare'), 0)
+    })
+
+    describe('IPR', function () {
+      it('should listen via function in IPR', function () {
+        const res = ILP.IPR.listen(this.plugin, this.params, () => {})
+        assert.isFunction(res, 'should return a function')
+      })
+    })
+
+    describe('PSK', function () {
+      it('should listen via function in PSK', function () {
+        const res = ILP.PSK.listen(this.plugin, this.params, () => {})
+        assert.isFunction(res, 'should return a function')
+      })
     })
   })
 
