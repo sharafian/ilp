@@ -1,7 +1,6 @@
 'use strict'
 
 const Transport = require('./transport')
-const cryptoHelper = require('../utils/crypto')
 
 /**
   * Create a payment request for use in the IPR transport protocol.

@@ -3,7 +3,6 @@
 const Packet = require('./packet')
 const moment = require('moment')
 const cryptoHelper = require('../utils/crypto')
-const uuid4 = require('uuid')
 const cc = require('../utils/condition')
 const co = require('co')
 const debug = require('debug')('ilp:transport')
@@ -92,7 +91,7 @@ function listen (plugin, {
       return false
     }
 
-    const { address, amount, data, expiresAt } =
+    const { address, amount, data } =
       Packet.parseFromTransfer(transfer)
     const decryptedData = cryptoHelper.aesDecryptObject(data.blob, secret)
     const fulfillment = cc.toFulfillment(preimage)
@@ -110,7 +109,7 @@ function listen (plugin, {
     // for debugging purposes
     return true
   }
-  
+
   const listener = co.wrap(autoFulfillCondition)
   plugin.on('incoming_prepare', listener)
 
@@ -134,9 +133,8 @@ function * _validateTransfer ({
     return _reject(plugin, transfer.id, 'no-execution')
   }
 
-  const { address, amount, data, expiresAt } =
+  const { address, amount, expiresAt } =
     Packet.parseFromTransfer(transfer)
-  const decryptedData = cryptoHelper.aesDecryptObject(data.blob, secret)
 
   if (address.indexOf(account) !== 0) {
     debug('notified of transfer for another account: account=' +

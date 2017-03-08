@@ -4,7 +4,6 @@ const crypto = require('crypto')
 const stringify = require('canonical-json')
 
 const IPR_RECEIVER_ID_STRING = 'ilp_ipr_receiver_id'
-const IPR_CONDITION_STRING = 'ilp_ipr_condition'
 const PSK_GENERATION_STRING = 'ilp_psk_generation'
 const PSK_CONDITION_STRING = 'ilp_psk_condition'
 const PSK_ENCRYPTION_STRING = 'ilp_key_encryption'
@@ -16,7 +15,6 @@ function getPskToken () {
 function getReceiverId (hmacKey) {
   return hmac(hmacKey, IPR_RECEIVER_ID_STRING).slice(0, 8)
 }
-
 
 function getPskSharedSecret (hmacKey, token) {
   const generator = hmac(hmacKey, PSK_GENERATION_STRING)

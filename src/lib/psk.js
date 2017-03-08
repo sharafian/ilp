@@ -1,6 +1,5 @@
 'use strict'
 
-const Packet = require('./packet')
 const Transport = require('./transport')
 const cryptoHelper = require('../utils/crypto')
 const assert = require('assert')

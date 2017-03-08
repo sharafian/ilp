@@ -109,8 +109,8 @@ function * quote (plugin, {
   timeout
 }) {
   if (!xor(sourceAmount, destinationAmount)) {
-    throw new Error('should provide source or destination amount but not both'
-      + ' ' + JSON.stringify({ sourceAmount, destinationAmount }))
+    throw new Error('should provide source or destination amount but not both' +
+      ' ' + JSON.stringify({ sourceAmount, destinationAmount }))
   }
 
   yield plugin.connect()
@@ -150,7 +150,7 @@ function * quote (plugin, {
 
   const bestQuote = quotes.reduce(_getCheaperQuote)
   debug('got best quote from connector:', JSON.stringify(bestQuote))
-  
+
   return omitUndefined({
     sourceAmount: sourceAmount || bestQuote.source_amount,
     destinationAmount: destinationAmount || bestQuote.destination_amount,
@@ -174,7 +174,7 @@ function * quoteByPacket (plugin, packet) {
 module.exports = {
   _sendAndReceiveMessage,
   _getQuote,
-  _getCheaperQuote,   
+  _getCheaperQuote,
   quote: co.wrap(quote),
   quoteByPacket: co.wrap(quoteByPacket)
 }

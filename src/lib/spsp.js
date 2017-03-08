@@ -47,7 +47,7 @@ const _createPayment = (spsp, quote, id) => {
     destinationAccount: spsp.destination_account,
     connectorAccount: quote.connectorAccount,
     sourceExpiryDuration: quote.sourceExpiryDuration,
-    spsp: spsp,
+    spsp: spsp
   }
 }
 
@@ -95,7 +95,6 @@ const quote = function * (plugin, {
 
   return _createPayment(spsp, quote, id)
 }
-
 
 function * sendPayment (plugin, payment) {
   assert(plugin, 'missing plugin')
@@ -170,7 +169,7 @@ function * sendPayment (plugin, payment) {
 
 module.exports = {
   _getHref,
-  _getSPSPFromReceiver, 
+  _getSPSPFromReceiver,
   _querySPSP,
   _createPayment,
   quote: co.wrap(quote),
