@@ -1,6 +1,7 @@
 'use strict'
 
 const Transport = require('./transport')
+const cryptoHelper = require('../utils/crypto')
 
 /**
   * Create a payment request for use in the IPR transport protocol.
@@ -15,10 +16,15 @@ const Transport = require('./transport')
   *
   * @return {Object} Payment request
   */
-function createPacketAndCondition (params) {
+function createPacketAndCondition (rawParams) {
   return Transport.createPacketAndCondition(params, 'ipr')
 }
 
-function listen (plugin, params, callback) {
+function listen (plugin, rawParams, callback) {
   return Transport.listen(plugin, params, callback, 'ipr')
+}
+
+module.exports = {
+  createPacketAndCondition,
+  listen
 }

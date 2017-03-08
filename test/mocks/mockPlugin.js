@@ -1,7 +1,7 @@
 'use strict'
-const EventEmitter = require('events')
+const EventEmitter2 = require('eventemitter2')
 
-module.exports = class MockPlugin extends EventEmitter {
+module.exports = class MockPlugin extends EventEmitter2 {
   constructor () {
     super()
   }
@@ -28,6 +28,10 @@ module.exports = class MockPlugin extends EventEmitter {
   }
 
   sendTransfer () {
+    return Promise.resolve(null)
+  }
+
+  rejectIncomingTransfer () {
     return Promise.resolve(null)
   }
 }

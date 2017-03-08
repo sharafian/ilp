@@ -2,6 +2,8 @@
 
 const Packet = require('./packet')
 const cryptoHelper = require('../utils/crypto')
+const assert = require('assert')
+const base64url = require('../utils/base64url')
 
 /**
   * Create a payment request using a Pre-Shared Key (PSK).
@@ -41,7 +43,7 @@ function generateParams ({
   assert(Buffer.isBuffer(secret), 'secret must be a buffer')
 
   const receiverId = id || ''
-  const token = cryptoHelper.getPskToken(secret)
+  const token = base64url(cryptoHelper.getPskToken(secret))
   return {
     destinationAccount: destinationAccount + '.' + receiverId + token,
     sharedSecret: base64url(cryptoHelper.getPskSharedSecret(secret, token))
@@ -50,4 +52,10 @@ function generateParams ({
 
 function listen (plugin, params, callback) {
   return Transport.listen(plugin, params, callback, 'psk')
+}
+
+module.exports = {
+  createPacketAndCondition,
+  generateParams,
+  listen
 }

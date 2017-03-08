@@ -1,36 +1,42 @@
 'use strict'
 
 const Packet = require('./packet')
+const moment = require('moment')
 const cryptoHelper = require('../utils/crypto')
 const uuid4 = require('uuid')
 const cc = require('../utils/condition')
+const co = require('co')
 const debug = require('debug')('ilp:transport')
+const assert = require('assert')
+const base64url = require('../utils/base64url')
+const BigNumber = require('bignumber.js')
 
 function createPacketAndCondition ({
   destinationAmount,
   destinationAccount,
   secret,
   data,
-  uuid,
-  expiresAt
-}, protocol) {
+  expiresAt,
+  protocol
+}) {
   assert(typeof destinationAmount === 'string', 'destinationAmount must be a string')
   assert(typeof destinationAccount === 'string', 'destinationAccount must be a string')
   assert(Buffer.isBuffer(secret), 'secret must be a buffer')
 
-  const address = params.destinationAccount + '.~' + protocol + '.' + (params.id || uuid4())
-  const blob = data && base64url(cryptoHelper.aesEncryptData(data), secret)
+  const id = base64url(cryptoHelper.getReceiverId(secret))
+  const address = destinationAccount + '.~' + protocol + '.' + id
+  const blob = data && base64url(cryptoHelper.aesEncryptObject(data, secret))
   const packet = Packet.serialize({
-    amount: params.destinationAmount,
+    amount: destinationAmount,
     address: address,
     expiresAt: expiresAt,
-    data: blob
+    data: { blob }
   })
 
-  // TODO: should this use the 'ni:' format or just be base64url?
-  const condition = cryptoHelper.hmacJsonForPskCondition(
-    packet,
-    secret)
+  const condition = base64url(cc.toCondition(
+    cryptoHelper.hmacJsonForPskCondition(
+      packet,
+      secret)))
 
   return {
     packet,
@@ -46,18 +52,15 @@ function _reject (plugin, id, reason) {
 
 function listen (plugin, {
   // TODO: best way to do receiverId?
-  id,
   secret,
   allowOverPayment
 }, callback, protocol) {
   assert(plugin && typeof plugin === 'object', 'plugin must be an object')
   assert(typeof callback === 'function', 'callback must be a function')
-  assert(Buffer.isBuffer(shared), 'opts.secret must be a buffer')
+  assert(Buffer.isBuffer(secret), 'opts.secret must be a buffer')
 
   // TODO: do this async
   // yield plugin.connect()
-  const receiverId = id || ''
-  const receiverSecret = cryptoHelper.getPskSharedSecret(secret, receiverId)
 
   /**
    * When we receive a transfer notification, check the transfer
@@ -68,27 +71,31 @@ function listen (plugin, {
    * Note return values are only for testing
    */
   function * autoFulfillCondition (transfer) {
-    yield validateTransfer({
+    // TODO: should this just be included in this function?
+    yield _validateTransfer({
       plugin,
       transfer,
-      receiverId,
-      protocol
+      protocol,
+      allowOverPayment,
+      secret
     })
 
     const preimage = cryptoHelper.hmacJsonForPskCondition(
       Packet.getFromTransfer(transfer),
-      receiverSecret)
+      secret)
 
-    if (transfer.executionCondition !== cc.toConditionUri(preimage)) {
+    if (transfer.executionCondition !== cc.toCondition(preimage)) {
       debug('notified of transfer where executionCondition does not' +
         ' match the one we generate.' +
         ' executionCondition=' + transfer.executionCondition +
-        ' our condition=' + cc.toConditionUri(preimage))
-      return
+        ' our condition=' + cc.toCondition(preimage))
+      return false
     }
 
-    const decryptedData = cryptoHelper.aesDecryptObject(data, receiverSecret)
-    const fulfillment = cc.toFulfillmentUri(conditionPreimage)
+    const { address, amount, data, expiresAt } =
+      Packet.parseFromTransfer(transfer)
+    const decryptedData = cryptoHelper.aesDecryptObject(data.blob, secret)
+    const fulfillment = cc.toFulfillment(preimage)
 
     callback({
       transfer: transfer,
@@ -96,24 +103,31 @@ function listen (plugin, {
       destinationAccount: address,
       destinationAmount: amount,
       fulfill: function () {
-        return fulfillCondition(transfer.id, fulfillment)
+        return plugin.fulfillCondition(transfer.id, fulfillment)
       }
     })
+
+    // for debugging purposes
+    return true
   }
   
-  plugin.on('incoming_prepare', co.wrap(autoFulfillCondition))
+  const listener = co.wrap(autoFulfillCondition)
+  plugin.on('incoming_prepare', listener)
+
   return function () {
-    plugin.removeListener('incoming_prepare', autoFulfillCondition)
+    plugin.removeListener('incoming_prepare', listener)
   }
 }
 
-function validateTransfer ({
+function * _validateTransfer ({
   plugin,
   transfer,
-  receiverId,
-  protocol
+  protocol,
+  allowOverPayment,
+  secret
 }) {
   const account = plugin.getAccount()
+  const id = base64url(cryptoHelper.getReceiverId(secret))
 
   if (!transfer.executionCondition) {
     debug('notified of transfer without executionCondition ', transfer)
@@ -122,6 +136,7 @@ function validateTransfer ({
 
   const { address, amount, data, expiresAt } =
     Packet.parseFromTransfer(transfer)
+  const decryptedData = cryptoHelper.aesDecryptObject(data.blob, secret)
 
   if (address.indexOf(account) !== 0) {
     debug('notified of transfer for another account: account=' +
@@ -135,15 +150,15 @@ function validateTransfer ({
   const [ addressProtocol, addressReceiverId ] = localPart.split('.')
 
   if (addressProtocol !== '~' + protocol) {
-    debug('notified of transfer with protocol=' + protocol)
+    debug('notified of transfer with protocol=' + addressProtocol)
     throw new Error('not-my-packet')
   }
 
-  if (addressReceiverId !== receiverId) {
+  if (addressReceiverId !== id) {
     debug('notified of transfer for another receiver: receiver=' +
       addressReceiverId +
       ' me=' +
-      receiverId)
+      id)
     throw new Error('not-my-packet')
   }
 
@@ -165,13 +180,13 @@ function validateTransfer ({
 
   if (expiresAt && moment().isAfter(expiresAt)) {
     debug('notified of transfer with expired packet:', transfer)
-    return _reject(transfer.id, 'expired')
+    return _reject(plugin, transfer.id, 'expired')
   }
 }
 
 module.exports = {
   _reject,
+  _validateTransfer: co.wrap(_validateTransfer),
   createPacketAndCondition,
-  validateTransfer,
   listen
 }
