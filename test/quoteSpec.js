@@ -10,23 +10,6 @@ const expect = chai.expect
 const chaiAsPromised = require('chai-as-promised')
 chai.use(chaiAsPromised)
 
-/*
-const sinon = require('sinon')
-const sinonChai = require('sinon-chai')
-require('sinon-as-promised')
-chai.use(sinonChai)
-const timekeeper = require('timekeeper')
-const _ = require('lodash')
-const mockRequire = require('mock-require')
-const CustomError = require('custom-error-instance')
-
-const createSender = require('../src/lib/sender').createSender
-const MockClient = require('./mocks/mockCore').Client
-const paymentRequest = require('./data/paymentRequest.json')
-const paymentParams = require('./data/paymentParams.json')
-const cryptoHelper = require('../src/utils/crypto')
-*/
-
 describe('ILQP', function () {
   beforeEach(function () {
     this.plugin = new MockPlugin()
@@ -131,8 +114,8 @@ describe('ILQP', function () {
 
     describe('quoteByPacket', function () {
       it('should parse quote params from packet', function * () {
-        // default expiry duration
-        this.result.expiresAt = moment().add(10, 'seconds').format()
+        // the response we're using gives sourceExpiryDuration of 0
+        this.result.expiresAt = moment().format()
 
         const response = yield ILQP.quoteByPacket(
           this.plugin,

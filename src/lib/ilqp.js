@@ -155,9 +155,11 @@ function * quote (plugin, {
     sourceAmount: sourceAmount || bestQuote.source_amount,
     destinationAmount: destinationAmount || bestQuote.destination_amount,
     connectorAccount: bestQuote.source_connector_account,
-    sourceExpiryDuration: bestQuote.source_expiry_duration,
+    sourceExpiryDuration: bestQuote.source_expiry_duration || 10,
     // current time plus sourceExpiryDuration, for convenience
-    expiresAt: moment().add(sourceExpiryDuration || 10, 'seconds').format()
+    expiresAt: moment()
+      .add(bestQuote.source_expiry_duration || 10, 'seconds')
+      .format()
   })
 }
 
