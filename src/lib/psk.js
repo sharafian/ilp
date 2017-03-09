@@ -6,6 +6,10 @@ const assert = require('assert')
 const base64url = require('../utils/base64url')
 
 /**
+  * @module PSK
+  */
+
+/**
   * Create a payment request using a Pre-Shared Key (PSK).
   *
   * @param {Object} params Parameters for creating payment request
@@ -28,29 +32,53 @@ function createPacketAndCondition (rawParams) {
   *
   * @param {Object} params Parameters for creating PSK params
   * @param {String} params.destinationAccount The ILP address that will receive PSK payments
-  * @param {String} params.secret secret used to generate the shared secret and the extra segments of destinationAccount
+  * @param {Buffer} params.secretSeed secret used to generate the shared secret and the extra segments of destinationAccount
   * @param {String} params.id id id to distinguish from other receivers listening on the same PSK account. If supplied, it must be passed into the PSK.listen function's options.
   *
   * @return {PskParams}
   */
 function generateParams ({
   destinationAccount,
-  secret,
-  // TODO: best way to do receiverId?
-  id
+  secretSeed
 }) {
   assert(typeof destinationAccount === 'string', 'destinationAccount must be a string')
-  assert(Buffer.isBuffer(secret), 'secret must be a buffer')
+  assert(Buffer.isBuffer(secretSeed), 'secretSeed must be a buffer')
 
-  const receiverId = id || ''
-  const token = base64url(cryptoHelper.getPskToken(secret))
+  const token = base64url(cryptoHelper.getPskToken(secretSeed))
+  const sharedSecret =
+    base64url(cryptoHelper.getPskSharedSecret(secretSeed, token))
+
+  const receiverId = base64url(cryptoHelper.getReceiverId(sharedSecret))
+
   return {
-    destinationAccount: destinationAccount + '.' + receiverId + token,
-    sharedSecret: base64url(cryptoHelper.getPskSharedSecret(secret, token))
+    sharedSecret,
+    destinationAccount: destinationAccount + '.' + receiverId + token
   }
 }
 
-function listen (plugin, params, callback) {
+/**
+  * @callback IncomingCallback
+  * @param {Object} params
+  * @param {Object} params.transfer Raw transfer object emitted by plugin
+  * @param {Object} params.data Decrypted data parsed from transfer
+  * @param {String} params.destinationAccount destinationAccount parsed from ILP packet
+  * @param {String} params.destinationAmount destinationAmount parsed from ILP packet
+  * @param {Function} params.fulfill async function that fulfills the transfer when it is called
+  */
+
+/**
+  * Listen on a plugin for incoming PSK payments, and auto-generate fulfillments.
+  *
+  * @param {Object} plugin Ledger plugin to listen on
+  * @param {Object} params Parameters for creating payment request
+  * @param {Buffer} params.sharedSecret Secret to generate fulfillments with
+  * @param {Buffer} [params.allowOverPayment] Accept payments with higher amounts than expected
+  * @param {IncomingCallback} callback Called after an incoming payment is validated.
+  *
+  * @return {Object} Payment request
+  */
+function listen (plugin, rawParams, callback) {
+  const params = Object.assign({}, rawParams, { secret: rawParams.sharedSecret })
   return Transport.listen(plugin, params, callback, 'psk')
 }
 

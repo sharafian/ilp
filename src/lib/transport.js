@@ -26,8 +26,8 @@ function createPacketAndCondition ({
   const address = destinationAccount + '.~' + protocol + '.' + id
 
   const blobData = { expiresAt, data }
-  const blob = data
-    && base64url(cryptoHelper.aesEncryptObject(blobData, secret))
+  const blob = data &&
+    base64url(cryptoHelper.aesEncryptObject(blobData, secret))
 
   const packet = Packet.serialize({
     destinationAccount: address,
@@ -53,7 +53,6 @@ function _reject (plugin, id, reason) {
 }
 
 function listen (plugin, {
-  // TODO: best way to do receiverId?
   secret,
   allowOverPayment
 }, callback, protocol) {

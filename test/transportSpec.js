@@ -18,7 +18,7 @@ describe('Transport', function () {
     beforeEach(function () {
       this.params = {
         destinationAccount: 'test.example.alice',
-        secret: Buffer.from('shh_its_a_secret', 'base64')
+        secretSeed: Buffer.from('shh_its_a_secret', 'base64')
       }
     })
 
@@ -119,6 +119,9 @@ describe('Transport', function () {
 
     describe('PSK', function () {
       it('should listen via function in PSK', function () {
+        this.params.sharedSecret = this.params.secret
+        delete this.params.secret
+
         const res = ILP.PSK.listen(this.plugin, this.params, () => {})
         assert.isFunction(res, 'should return a function')
       })

@@ -6,8 +6,8 @@ const debug = require('debug')('ilp:ilqp')
 const moment = require('moment')
 const BigNumber = require('bignumber.js')
 const uuid = require('uuid')
-const { safeConnect, startsWith, wait, xor, omitUndefined }
-  = require('../utils')
+const { safeConnect, startsWith, wait, xor, omitUndefined } =
+  require('../utils')
 
 const DEFAULT_MESSAGE_TIMEOUT = 5000
 const DEFAULT_EXPIRY_DURATION = 10
@@ -179,8 +179,8 @@ function * quote (plugin, {
     sourceAmount: sourceAmount || bestQuote.source_amount,
     destinationAmount: destinationAmount || bestQuote.destination_amount,
     connectorAccount: bestQuote.source_connector_account,
-    sourceExpiryDuration: bestQuote.source_expiry_duration
-      || DEFAULT_EXPIRY_DURATION,
+    sourceExpiryDuration: bestQuote.source_expiry_duration ||
+      DEFAULT_EXPIRY_DURATION,
     // current time plus sourceExpiryDuration, for convenience
     expiresAt: moment()
       .add(
