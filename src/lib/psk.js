@@ -33,7 +33,6 @@ function createPacketAndCondition (rawParams) {
   * @param {Object} params Parameters for creating PSK params
   * @param {String} params.destinationAccount The ILP address that will receive PSK payments
   * @param {Buffer} params.secretSeed secret used to generate the shared secret and the extra segments of destinationAccount
-  * @param {String} params.id id id to distinguish from other receivers listening on the same PSK account. If supplied, it must be passed into the PSK.listen function's options.
   *
   * @return {PskParams}
   */

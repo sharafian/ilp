@@ -111,8 +111,7 @@ function * sendPayment (plugin, payment) {
     sharedSecret: Buffer.from(payment.spsp.shared_secret, 'base64'),
     destinationAmount: payment.destinationAmount,
     destinationAccount: payment.destinationAccount,
-    data: payment.data, // optional
-    expiresAt: payment.expiresAt // optional
+    data: payment.data // optional
   })
 
   const fulfill = new Promise((resolve, reject) => {

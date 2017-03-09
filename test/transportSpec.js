@@ -98,37 +98,43 @@ describe('Transport', function () {
       }
     })
 
-    it('should listen', function () {
-      const res = Transport.listen(this.plugin, this.params, () => {})
+    it('should listen', function * () {
+      const res = yield Transport.listen(this.plugin, this.params, () => {})
       assert.isFunction(res, 'should return a function')
     })
 
-    it('should remove listeners with its function', function () {
-      const res = Transport.listen(this.plugin, this.params, () => {})
+    it('should throw if connect rejects', function * () {
+      this.plugin.connect = () => Promise.reject('an error!')
+      yield expect(Transport.listen(this.plugin, this.params, () => {}))
+        .to.eventually.be.rejectedWith(/an error!/)
+    })
+
+    it('should remove listeners with its function', function * () {
+      const res = yield Transport.listen(this.plugin, this.params, () => {})
       assert.equal(this.plugin.listenerCount('incoming_prepare'), 1)
       res()
       assert.equal(this.plugin.listenerCount('incoming_prepare'), 0)
     })
 
     describe('IPR', function () {
-      it('should listen via function in IPR', function () {
-        const res = ILP.IPR.listen(this.plugin, this.params, () => {})
+      it('should listen via function in IPR', function * () {
+        const res = yield ILP.IPR.listen(this.plugin, this.params, () => {})
         assert.isFunction(res, 'should return a function')
       })
     })
 
     describe('PSK', function () {
-      it('should listen via function in PSK', function () {
+      it('should listen via function in PSK', function * () {
         this.params.sharedSecret = this.params.secret
         delete this.params.secret
 
-        const res = ILP.PSK.listen(this.plugin, this.params, () => {})
+        const res = yield ILP.PSK.listen(this.plugin, this.params, () => {})
         assert.isFunction(res, 'should return a function')
       })
     })
   })
 
-  describe('_validateTransfer', function () {
+  describe('_validateOrRejectTransfer', function () {
     beforeEach(function () {
       const { packet, condition } = Transport.createPacketAndCondition({
         destinationAmount: '1',
@@ -154,56 +160,73 @@ describe('Transport', function () {
           data: packet
         }
       }
+
+      this.rejected = new Promise((resolve) => {
+        this.plugin.rejectIncomingTransfer = (id, msg) => {
+          resolve(msg)
+          return Promise.resolve()
+        }
+      })
     })
 
     it('should accept a valid transfer', function * () {
-      yield Transport._validateTransfer(this.params)
+      yield Transport._validateOrRejectTransfer(this.params)
     })
 
     it('should not accept transfer without condition', function * () {
       delete this.params.transfer.executionCondition
-      yield expect(Transport._validateTransfer(this.params))
-        .to.be.rejectedWith(/no-execution/)
+      assert.equal(
+        yield Transport._validateOrRejectTransfer(this.params),
+        'no-execution')
     })
 
     it('should not accept transfer for other account', function * () {
       this.params.transfer.data.ilp_header.account =
         'test.example.garbage'
-      yield expect(Transport._validateTransfer(this.params))
-        .to.be.rejectedWith(/not-my-packet/)
+      assert.equal(
+        yield Transport._validateOrRejectTransfer(this.params),
+        'not-my-packet')
     })
 
     it('should not accept transfer for other protocol', function * () {
       this.params.transfer.data.ilp_header.account =
         'test.example.alice.~ekp'
-      yield expect(Transport._validateTransfer(this.params))
-        .to.be.rejectedWith(/not-my-packet/)
+      assert.equal(
+        yield Transport._validateOrRejectTransfer(this.params),
+        'not-my-packet')
     })
 
     it('should not accept transfer for other receiver', function * () {
       this.params.transfer.data.ilp_header.account =
         'test.example.alice.~ipr.garbage'
 
-      yield expect(Transport._validateTransfer(this.params))
-        .to.be.rejectedWith(/not-my-packet/)
+      assert.equal(
+        yield Transport._validateOrRejectTransfer(this.params),
+        'not-my-packet')
     })
 
-    it('should not accept transfer for too little money', function * () {
+    it('should reject transfer for too little money', function * () {
       this.params.transfer.amount = '0.1'
-      yield expect(Transport._validateTransfer(this.params))
-        .to.be.rejectedWith(/insufficient/)
+      assert.equal(
+        yield Transport._validateOrRejectTransfer(this.params),
+        'insufficient')
+      yield this.rejected
     })
 
     it('should not accept transfer for too much money', function * () {
       this.params.transfer.amount = '1.1'
-      yield expect(Transport._validateTransfer(this.params))
-        .to.be.rejectedWith(/overpayment/)
+      assert.equal(
+        yield Transport._validateOrRejectTransfer(this.params),
+        'overpayment')
+      yield this.rejected
     })
 
     it('should accept extra money with "allowOverPayment"', function * () {
       this.params.transfer.amount = '1.1'
       this.params.allowOverPayment = true
-      yield Transport._validateTransfer(this.params)
+      // no error-code is returned on success
+      assert.isNotOk(
+        yield Transport._validateOrRejectTransfer(this.params))
     })
 
     it('should not accept late transfer', function * () {
@@ -219,8 +242,10 @@ describe('Transport', function () {
 
       this.params.transfer.data = packet
 
-      yield expect(Transport._validateTransfer(this.params))
-        .to.be.rejectedWith(/expired/)
+      assert.equal(
+        yield Transport._validateOrRejectTransfer(this.params),
+        'expired')
+      yield this.rejected
     })
   })
 
@@ -254,10 +279,17 @@ describe('Transport', function () {
       this.fulfilled = new Promise((resolve) => {
         this.callback = resolve
       })
+
+      this.rejected = new Promise((resolve) => {
+        this.plugin.rejectIncomingTransfer = (id, msg) => {
+          resolve(msg)
+          return Promise.resolve()
+        }
+      })
     })
 
     it('should call fulfillCondition on a valid incoming transfer', function * () {
-      Transport.listen(this.plugin, this.params, this.callback, 'ipr')
+      yield Transport.listen(this.plugin, this.params, this.callback, 'ipr')
 
       // listener returns true for debug purposes
       const res = yield this.plugin.emitAsync('incoming_prepare', this.transfer)
@@ -266,13 +298,13 @@ describe('Transport', function () {
       yield this.fulfilled
     })
 
-    it('should not fulfill when it generates the wrong fulfillment', function * () {
+    it('should reject when it generates the wrong fulfillment', function * () {
       this.transfer.executionCondition = 'garbage'
-      Transport.listen(this.plugin, this.params, this.callback, 'ipr')
+      yield Transport.listen(this.plugin, this.params, this.callback, 'ipr')
 
       // listener returns false for debug purposes
-      const res = yield this.plugin.emitAsync('incoming_prepare', this.transfer)
-      assert.isNotOk(res[0])
+      yield this.plugin.emitAsync('incoming_prepare', this.transfer)
+      yield this.rejected
     })
 
     it('should pass the fulfill function to the callback', function * () {
@@ -289,7 +321,7 @@ describe('Transport', function () {
         details.fulfill()
       }
 
-      Transport.listen(this.plugin, this.params, this.callback, 'ipr')
+      yield Transport.listen(this.plugin, this.params, this.callback, 'ipr')
       yield this.plugin.emitAsync('incoming_prepare', this.transfer)
       yield fulfilled
     })

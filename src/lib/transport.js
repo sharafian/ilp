@@ -9,8 +9,10 @@ const debug = require('debug')('ilp:transport')
 const assert = require('assert')
 const base64url = require('../utils/base64url')
 const BigNumber = require('bignumber.js')
+const { safeConnect } = require('../utils')
 
 function createPacketAndCondition ({
+  id,
   destinationAmount,
   destinationAccount,
   secret,
@@ -22,8 +24,9 @@ function createPacketAndCondition ({
   assert(typeof destinationAccount === 'string', 'destinationAccount must be a string')
   assert(Buffer.isBuffer(secret), 'secret must be a buffer')
 
-  const id = base64url(cryptoHelper.getReceiverId(secret))
-  const address = destinationAccount + '.~' + protocol + '.' + id
+  const receiverId = base64url(cryptoHelper.getReceiverId(secret))
+  const address = destinationAccount + '.~' + protocol + '.' + receiverId
+    + (id ? ('.' + id) : '')
 
   const blobData = { expiresAt, data }
   const blob = data &&
@@ -49,10 +52,10 @@ function createPacketAndCondition ({
 function _reject (plugin, id, reason) {
   return plugin
     .rejectIncomingTransfer(id, reason)
-    .then(() => Promise.reject(new Error(reason)))
+    .then(() => reason)
 }
 
-function listen (plugin, {
+function * listen (plugin, {
   secret,
   allowOverPayment
 }, callback, protocol) {
@@ -60,8 +63,7 @@ function listen (plugin, {
   assert(typeof callback === 'function', 'callback must be a function')
   assert(Buffer.isBuffer(secret), 'opts.secret must be a buffer')
 
-  // TODO: do this async
-  // yield plugin.connect()
+  yield safeConnect(plugin)
 
   /**
    * When we receive a transfer notification, check the transfer
@@ -73,13 +75,15 @@ function listen (plugin, {
    */
   function * autoFulfillCondition (transfer) {
     // TODO: should this just be included in this function?
-    yield _validateTransfer({
+    const err = yield _validateOrRejectTransfer({
       plugin,
       transfer,
       protocol,
       allowOverPayment,
       secret
     })
+
+    if (err) return err
 
     const preimage = cryptoHelper.hmacJsonForPskCondition(
       Packet.getFromTransfer(transfer),
@@ -90,7 +94,7 @@ function listen (plugin, {
         ' match the one we generate.' +
         ' executionCondition=' + transfer.executionCondition +
         ' our condition=' + cc.toCondition(preimage))
-      return false
+      return yield _reject(plugin, transfer.id, 'condition-mismatch')
     }
 
     const { destinationAccount, destinationAmount, data } =
@@ -120,7 +124,7 @@ function listen (plugin, {
   }
 }
 
-function * _validateTransfer ({
+function * _validateOrRejectTransfer ({
   plugin,
   transfer,
   protocol,
@@ -128,11 +132,11 @@ function * _validateTransfer ({
   secret
 }) {
   const account = plugin.getAccount()
-  const id = base64url(cryptoHelper.getReceiverId(secret))
+  const receiverId = base64url(cryptoHelper.getReceiverId(secret))
 
   if (!transfer.executionCondition) {
     debug('notified of transfer without executionCondition ', transfer)
-    return _reject(plugin, transfer.id, 'no-execution')
+    return yield _reject(plugin, transfer.id, 'no-execution')
   }
 
   const { destinationAccount, destinationAmount, data } =
@@ -149,7 +153,7 @@ function * _validateTransfer ({
       destinationAccount +
       ' me=' +
       account)
-    throw new Error('not-my-packet')
+    return 'not-my-packet'
   }
 
   const localPart = destinationAccount.slice(account.length + 1)
@@ -157,15 +161,15 @@ function * _validateTransfer ({
 
   if (addressProtocol !== '~' + protocol) {
     debug('notified of transfer with protocol=' + addressProtocol)
-    throw new Error('not-my-packet')
+    return 'not-my-packet'
   }
 
-  if (addressReceiverId !== id) {
+  if (addressReceiverId !== receiverId) {
     debug('notified of transfer for another receiver: receiver=' +
       addressReceiverId +
       ' me=' +
-      id)
-    throw new Error('not-my-packet')
+      receiverId)
+    return 'not-my-packet'
   }
 
   const amount = new BigNumber(transfer.amount)
@@ -174,25 +178,25 @@ function * _validateTransfer ({
     debug('notified of transfer amount smaller than packet amount:' +
       ' transfer=' + transfer.amount +
       ' packet=' + destinationAmount)
-    throw new Error('insufficient')
+    return yield _reject(plugin, transfer.id, 'insufficient')
   }
 
   if (!allowOverPayment && amount.greaterThan(destinationAmount)) {
     debug('notified of transfer amount larger than packet amount:' +
       ' transfer=' + transfer.amount +
       ' packet=' + destinationAmount)
-    throw new Error('overpayment')
+    return yield _reject(plugin, transfer.id, 'overpayment')
   }
 
   if (expiresAt && moment().isAfter(expiresAt)) {
     debug('notified of transfer with expired packet:', transfer)
-    return _reject(plugin, transfer.id, 'expired')
+    return yield _reject(plugin, transfer.id, 'expired')
   }
 }
 
 module.exports = {
   _reject,
-  _validateTransfer: co.wrap(_validateTransfer),
+  _validateOrRejectTransfer: co.wrap(_validateOrRejectTransfer),
   createPacketAndCondition,
-  listen
+  listen: co.wrap(listen)
 }
