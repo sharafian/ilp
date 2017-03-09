@@ -178,7 +178,7 @@ describe('Transport', function () {
         'no-execution')
     })
 
-    it('should not accept transfer for other account', function * () {
+    it('should ignore transfer for other account', function * () {
       this.params.transfer.data.ilp_header.account =
         'test.example.garbage'
       assert.equal(
@@ -297,6 +297,15 @@ describe('Transport', function () {
 
     it('should reject when it generates the wrong fulfillment', function * () {
       this.transfer.executionCondition = 'garbage'
+      yield Transport.listen(this.plugin, this.params, this.callback, 'ipr')
+
+      // listener returns false for debug purposes
+      yield this.plugin.emitAsync('incoming_prepare', this.transfer)
+      yield this.rejected
+    })
+
+    it('should reject when packet details have been changed', function * () {
+      this.transfer.data.ilp_header.data.blob += 'a'
       yield Transport.listen(this.plugin, this.params, this.callback, 'ipr')
 
       // listener returns false for debug purposes

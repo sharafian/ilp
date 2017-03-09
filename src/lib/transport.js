@@ -11,6 +11,16 @@ const base64url = require('../utils/base64url')
 const BigNumber = require('bignumber.js')
 const { safeConnect } = require('../utils')
 
+function _safeDecrypt (data, secret) {
+  if (!data.blob) return {}
+  try {
+    return cryptoHelper.aesDecryptObject(data.blob, secret) 
+  } catch (err) {
+    debug('decryption error:', err.message)
+    return undefined
+  }
+}
+
 function createPacketAndCondition ({
   id,
   destinationAmount,
@@ -98,7 +108,12 @@ function * listen (plugin, {
 
     const { destinationAccount, destinationAmount, data } =
       Packet.parseFromTransfer(transfer)
-    const decryptedData = cryptoHelper.aesDecryptObject(data.blob, secret)
+    const decryptedData = _safeDecrypt(data, secret)
+
+    if (decryptedData === undefined) {
+      return yield _reject(plugin, transfer.id, 'corrupted-ciphertext')
+    }
+
     const fulfillment = cc.toFulfillment(preimage)
 
     callback({
@@ -141,9 +156,11 @@ function * _validateOrRejectTransfer ({
   const { destinationAccount, destinationAmount, data } =
     Packet.parseFromTransfer(transfer)
 
-  const decryptedData = data.blob
-    ? cryptoHelper.aesDecryptObject(data.blob, secret)
-    : {}
+  const decryptedData = _safeDecrypt(data, secret)
+
+  if (decryptedData === undefined) {
+    return yield _reject(plugin, transfer.id, 'corrupted-ciphertext')
+  }
 
   const expiresAt = decryptedData.expiresAt
 

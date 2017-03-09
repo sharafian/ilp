@@ -72,7 +72,7 @@ describe('ILQP', function () {
         this.result)
     })
 
-    it('should throw if getInfo returns no connectors', function * () {
+    it('should reject if getInfo returns no connectors', function * () {
       delete this.params.connectors
       this.plugin.getInfo = () => ({ prefix: 'test.example.' })
 

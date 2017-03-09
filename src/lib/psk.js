@@ -71,7 +71,7 @@ function generateParams ({
   * @param {Object} plugin Ledger plugin to listen on
   * @param {Object} params Parameters for creating payment request
   * @param {Buffer} params.sharedSecret Secret to generate fulfillments with
-  * @param {Buffer} [params.allowOverPayment] Accept payments with higher amounts than expected
+  * @param {Buffer} [params.allowOverPayment=false] Accept payments with higher amounts than expected
   * @param {IncomingCallback} callback Called after an incoming payment is validated.
   *
   * @return {Object} Payment request
