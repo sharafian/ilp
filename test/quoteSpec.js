@@ -72,6 +72,14 @@ describe('ILQP', function () {
         this.result)
     })
 
+    it('should throw if getInfo returns no connectors', function * () {
+      delete this.params.connectors
+      this.plugin.getInfo = () => ({ prefix: 'test.example.' })
+
+      yield expect(ILQP.quote(this.plugin, this.params))
+        .to.be.rejectedWith(/no connectors specified/)    
+    })
+
     it('should quote by destination amount', function * () {
       this.params.destinationAmount = this.params.sourceAmount
       delete this.params.sourceAmount

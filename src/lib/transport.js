@@ -17,9 +17,8 @@ function createPacketAndCondition ({
   destinationAccount,
   secret,
   data,
-  expiresAt,
-  protocol
-}) {
+  expiresAt
+}, protocol) {
   assert(typeof destinationAmount === 'string', 'destinationAmount must be a string')
   assert(typeof destinationAccount === 'string', 'destinationAccount must be a string')
   assert(Buffer.isBuffer(secret), 'secret must be a buffer')

@@ -53,7 +53,10 @@ describe('Packet', function () {
 
     it('should parse a packet w/o data', function () {
       delete this.packet.ilp_header.data
-      Packet.parse(this.packet)
+      this.parsed.data = {}
+      assert.deepEqual(
+        Packet.parse(this.packet),
+        this.parsed)
     })
   })
 

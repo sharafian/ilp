@@ -47,9 +47,8 @@ describe('Transport', function () {
 
         // the data is still encrypted, so we can't check it from just parsing
         assert.isString(data.blob)
-        assert.equal(destinationAmount, this.params.destinationAmount)
-        assert.match(destinationAccount,
-          new RegExp(this.params.destinationAccount))
+        assert.equal(destinationAmount, '1')
+        assert.match(destinationAccount, /^test\.example\.alice\.~(psk|ipr)/)
       }
     })
 
@@ -65,7 +64,7 @@ describe('Transport', function () {
 
       const parsed = ILP.Packet.parse(result.packet)
       assert.match(parsed.destinationAccount,
-        new RegExp(this.params.destinationAccount))
+        /test\.example\.alice\.~psk\..{8}/)
     })
 
     describe('IPR', function () {
@@ -143,8 +142,7 @@ describe('Transport', function () {
         data: { foo: 'bar' },
         id: 'ee39d171-cdd5-4268-9ec8-acc349666055',
         expiresAt: moment().add(1, 'seconds').format(),
-        protocol: 'ipr'
-      })
+      }, 'ipr')
 
       this.params = {
         protocol: 'ipr',
@@ -173,7 +171,7 @@ describe('Transport', function () {
       yield Transport._validateOrRejectTransfer(this.params)
     })
 
-    it('should not accept transfer without condition', function * () {
+    it('should ignore transfer without condition', function * () {
       delete this.params.transfer.executionCondition
       assert.equal(
         yield Transport._validateOrRejectTransfer(this.params),
@@ -213,7 +211,7 @@ describe('Transport', function () {
       yield this.rejected
     })
 
-    it('should not accept transfer for too much money', function * () {
+    it('should reject transfer for too much money', function * () {
       this.params.transfer.amount = '1.1'
       assert.equal(
         yield Transport._validateOrRejectTransfer(this.params),
@@ -237,8 +235,7 @@ describe('Transport', function () {
         data: { foo: 'bar' },
         id: 'ee39d171-cdd5-4268-9ec8-acc349666055',
         expiresAt: moment().add(-1, 'seconds').format(),
-        protocol: 'ipr'
-      })
+      }, 'ipr')
 
       this.params.transfer.data = packet
 
@@ -253,7 +250,7 @@ describe('Transport', function () {
     beforeEach(function () {
       const { packet, condition } = Transport.createPacketAndCondition({
         destinationAmount: '1',
-        destinationAccount: 'test.example.alice',
+        destinationAccount: 'test.example.alice.~ipr.GbLOVv3YyLo',
         secret: Buffer.from('shh_its_a_secret', 'base64'),
         data: { foo: 'bar' },
         id: 'ee39d171-cdd5-4268-9ec8-acc349666055',
@@ -269,7 +266,7 @@ describe('Transport', function () {
       this.transfer = {
         id: 'ee39d171-cdd5-4268-9ec8-acc349666055',
         amount: '1',
-        to: 'test.example.alice',
+        to: 'test.example.alice.~ipr.GbLOVv3YyLo',
         from: 'test.example.connie',
         executionCondition: condition,
         data: packet

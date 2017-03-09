@@ -8,17 +8,20 @@ const PSK_GENERATION_STRING = 'ilp_psk_generation'
 const PSK_CONDITION_STRING = 'ilp_psk_condition'
 const PSK_ENCRYPTION_STRING = 'ilp_key_encryption'
 
+const RECEIVER_ID_LENGTH = 8
+const SHARED_SECRET_LENGTH = 16
+
 function getPskToken () {
   return crypto.randomBytes(16)
 }
 
 function getReceiverId (hmacKey) {
-  return hmac(hmacKey, IPR_RECEIVER_ID_STRING).slice(0, 8)
+  return hmac(hmacKey, IPR_RECEIVER_ID_STRING).slice(0, RECEIVER_ID_LENGTH)
 }
 
 function getPskSharedSecret (hmacKey, token) {
   const generator = hmac(hmacKey, PSK_GENERATION_STRING)
-  return hmac(generator, token).slice(0, 16)
+  return hmac(generator, token).slice(0, SHARED_SECRET_LENGTH)
 }
 
 function hmac (key, message) {

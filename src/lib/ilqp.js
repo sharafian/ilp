@@ -161,7 +161,7 @@ function * quote (plugin, {
     destination_precision: destinationPrecision
   })
 
-  const quoteConnectors = connectors || plugin.getInfo().connectors
+  const quoteConnectors = connectors || plugin.getInfo().connectors || []
   debug('quoting', amount, 'via', quoteConnectors)
 
   // handle connector responses will return all successful quotes, or
