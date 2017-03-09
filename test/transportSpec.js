@@ -42,12 +42,14 @@ describe('Transport', function () {
       }
 
       this.validate = (result) => {
-        const { address, data, amount } = ILP.Packet.parse(result.packet)
+        const { destinationAccount, destinationAmount, data } =
+          ILP.Packet.parse(result.packet)
 
         // the data is still encrypted, so we can't check it from just parsing
         assert.isString(data.blob)
-        assert.match(address, new RegExp(this.params.destinationAccount))
-        assert.equal(amount, this.params.destinationAmount)
+        assert.equal(destinationAmount, this.params.destinationAmount)
+        assert.match(destinationAccount,
+          new RegExp(this.params.destinationAccount))
       }
     })
 
@@ -62,7 +64,8 @@ describe('Transport', function () {
       this.validate(result)
 
       const parsed = ILP.Packet.parse(result.packet)
-      assert.match(parsed.address, new RegExp(this.params.destinationAccount))
+      assert.match(parsed.destinationAccount,
+        new RegExp(this.params.destinationAccount))
     })
 
     describe('IPR', function () {
@@ -161,19 +164,21 @@ describe('Transport', function () {
     })
 
     it('should not accept transfer for other account', function * () {
-      this.params.transfer.data.ilp_header.address = 'test.example.garbage'
+      this.params.transfer.data.ilp_header.account =
+        'test.example.garbage'
       yield expect(Transport._validateTransfer(this.params))
         .to.be.rejectedWith(/not-my-packet/)
     })
 
     it('should not accept transfer for other protocol', function * () {
-      this.params.transfer.data.ilp_header.address = 'test.example.alice.~ekp'
+      this.params.transfer.data.ilp_header.account =
+        'test.example.alice.~ekp'
       yield expect(Transport._validateTransfer(this.params))
         .to.be.rejectedWith(/not-my-packet/)
     })
 
     it('should not accept transfer for other receiver', function * () {
-      this.params.transfer.data.ilp_header.address =
+      this.params.transfer.data.ilp_header.account =
         'test.example.alice.~ipr.garbage'
 
       yield expect(Transport._validateTransfer(this.params))
@@ -199,8 +204,18 @@ describe('Transport', function () {
     })
 
     it('should not accept late transfer', function * () {
-      this.params.transfer.data.ilp_header.data.expires_at =
-        moment().add(-1, 'seconds').format()
+      const { packet, condition } = Transport.createPacketAndCondition({
+        destinationAmount: '1',
+        destinationAccount: 'test.example.alice',
+        secret: Buffer.from('shh_its_a_secret', 'base64'),
+        data: { foo: 'bar' },
+        id: 'ee39d171-cdd5-4268-9ec8-acc349666055',
+        expiresAt: moment().add(-1, 'seconds').format(),
+        protocol: 'ipr'
+      })
+
+      this.params.transfer.data = packet
+
       yield expect(Transport._validateTransfer(this.params))
         .to.be.rejectedWith(/expired/)
     })

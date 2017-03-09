@@ -4,22 +4,21 @@ const assert = require('assert')
 const { omitUndefined } = require('../utils')
 
 function serialize ({
-  amount,
-  address,
-  expiresAt,
+  destinationAmount,
+  destinationAccount,
   data
 }) {
-  assert(amount, 'packet requires an amount. got: ' + amount)
-  assert(address, 'packet requires an address. got: ' + address)
+  assert(destinationAmount,
+    'packet requires a destinationAmount. got: ' + destinationAmount)
+  assert(destinationAccount,
+    'packet requires a destinationAccount. got: ' + destinationAccount)
+
   // for now, this is an object
   return {
     ilp_header: {
-      amount: amount,
-      address: address,
-      data: omitUndefined({
-        expires_at: expiresAt,
-        data: data
-      })
+      amount: destinationAmount,
+      account: destinationAccount,
+      data: data || {}
     }
   }
 }
@@ -29,14 +28,13 @@ function parse (packet) {
   assert(typeof packet === 'object', 'got invalid packet: ' + packet)
   assert(packet.ilp_header, 'got invalid packet: ' + JSON.stringify(packet))
   assert(packet.ilp_header.amount, 'packet missing amount')
-  assert(packet.ilp_header.address, 'packet missing address')
+  assert(packet.ilp_header.account, 'packet missing account')
 
   const header = packet.ilp_header
   return omitUndefined({
-    amount: header.amount,
-    address: header.address,
-    expiresAt: header.data && header.data.expires_at,
-    data: header.data && header.data.data
+    destinationAmount: header.amount,
+    destinationAccount: header.account,
+    data: header.data || {}
   })
 }
 
@@ -49,7 +47,7 @@ function getFromTransfer (transfer) {
   assert(transfer.data.ilp_header, 'transfer.data missing ilp_header: ' +
     JSON.stringify(transfer.data))
 
-  return transfer.data
+  return { ilp_header: transfer.data.ilp_header }
 }
 
 function parseFromTransfer (transfer) {

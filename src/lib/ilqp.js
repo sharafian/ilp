@@ -2,11 +2,40 @@
 
 const co = require('co')
 const Packet = require('./packet')
-const { startsWith, wait, xor, omitUndefined } = require('../utils')
 const debug = require('debug')('ilp:ilqp')
 const moment = require('moment')
 const BigNumber = require('bignumber.js')
 const uuid = require('uuid')
+const { safeConnect, startsWith, wait, xor, omitUndefined }
+  = require('../utils')
+
+const DEFAULT_MESSAGE_TIMEOUT = 5000
+const DEFAULT_EXPIRY_DURATION = 10
+
+function * _handleConnectorResponses (connectors, promises) {
+  if (connectors.length === 0) {
+    throw new Error('no connectors specified')
+  }
+
+  const quotes = []
+  const errors = []
+
+  for (let c = 0; c < connectors.length; ++c) {
+    try {
+      const quote = yield promises[c]
+      if (quote) quotes.push(quote)
+    } catch (err) {
+      errors.push(connectors[c] + ': ' + err.message)
+    }
+  }
+
+  if (quotes.length === 0) {
+    throw new Error('Errors occurred during quoting: ' +
+      errors.join(', '))
+  }
+
+  return quotes
+}
 
 function _sendAndReceiveMessage ({
   plugin,
@@ -38,7 +67,7 @@ function _sendAndReceiveMessage ({
 
   return Promise.race([
     plugin.sendMessage(message).then(() => responded),
-    wait(timeout || 5000)
+    wait(timeout || DEFAULT_MESSAGE_TIMEOUT)
       .then(() => { throw new Error('quote request timed out') })
   ])
 }
@@ -66,9 +95,6 @@ function _getQuote ({
     }
   }).then((response) => {
     return response.data.data
-  }).catch((err) => {
-    // TODO: should this do something else about errors?
-    debug('ignoring remote quote error:', err.message)
   })
 }
 
@@ -113,7 +139,7 @@ function * quote (plugin, {
       ' ' + JSON.stringify({ sourceAmount, destinationAmount }))
   }
 
-  yield plugin.connect()
+  yield safeConnect(plugin)
   const prefix = plugin.getInfo().prefix
   const amount = sourceAmount || destinationAmount
 
@@ -138,15 +164,13 @@ function * quote (plugin, {
   const quoteConnectors = connectors || plugin.getInfo().connectors
   debug('quoting', amount, 'via', quoteConnectors)
 
-  const quotes = (yield quoteConnectors.map((connector) => {
-    return _getQuote({ plugin, connector, quoteQuery, timeout })
-  })).filter((a) => (a !== undefined))
-
-  // TODO: should this return an error?
-  if (quotes.length === 0) {
-    debug('got undefined quote response from all of', quoteConnectors)
-    return
-  }
+  // handle connector responses will return all successful quotes, or
+  // throw all errors if there were none.
+  const quotes = yield _handleConnectorResponses(
+    quoteConnectors,
+    quoteConnectors.map((connector) => {
+      return _getQuote({ plugin, connector, quoteQuery, timeout })
+    }))
 
   const bestQuote = quotes.reduce(_getCheaperQuote)
   debug('got best quote from connector:', JSON.stringify(bestQuote))
@@ -155,19 +179,22 @@ function * quote (plugin, {
     sourceAmount: sourceAmount || bestQuote.source_amount,
     destinationAmount: destinationAmount || bestQuote.destination_amount,
     connectorAccount: bestQuote.source_connector_account,
-    sourceExpiryDuration: bestQuote.source_expiry_duration || 10,
+    sourceExpiryDuration: bestQuote.source_expiry_duration
+      || DEFAULT_EXPIRY_DURATION,
     // current time plus sourceExpiryDuration, for convenience
     expiresAt: moment()
-      .add(bestQuote.source_expiry_duration || 10, 'seconds')
+      .add(
+        bestQuote.source_expiry_duration || DEFAULT_EXPIRY_DURATION,
+        'seconds')
       .format()
   })
 }
 
 function * quoteByPacket (plugin, packet) {
-  const { address, amount } = Packet.parse(packet)
+  const { destinationAddress, destinationAmount } = Packet.parse(packet)
   return yield quote(plugin, {
-    destinationAmount: amount,
-    destinationAddress: address
+    destinationAmount,
+    destinationAddress
   })
 }
 

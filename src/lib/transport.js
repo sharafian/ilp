@@ -24,11 +24,14 @@ function createPacketAndCondition ({
 
   const id = base64url(cryptoHelper.getReceiverId(secret))
   const address = destinationAccount + '.~' + protocol + '.' + id
-  const blob = data && base64url(cryptoHelper.aesEncryptObject(data, secret))
+
+  const blobData = { expiresAt, data }
+  const blob = data
+    && base64url(cryptoHelper.aesEncryptObject(blobData, secret))
+
   const packet = Packet.serialize({
-    amount: destinationAmount,
-    address: address,
-    expiresAt: expiresAt,
+    destinationAccount: address,
+    destinationAmount,
     data: { blob }
   })
 
@@ -91,7 +94,7 @@ function listen (plugin, {
       return false
     }
 
-    const { address, amount, data } =
+    const { destinationAccount, destinationAmount, data } =
       Packet.parseFromTransfer(transfer)
     const decryptedData = cryptoHelper.aesDecryptObject(data.blob, secret)
     const fulfillment = cc.toFulfillment(preimage)
@@ -99,8 +102,8 @@ function listen (plugin, {
     callback({
       transfer: transfer,
       data: decryptedData,
-      destinationAccount: address,
-      destinationAmount: amount,
+      destinationAccount,
+      destinationAmount,
       fulfill: function () {
         return plugin.fulfillCondition(transfer.id, fulfillment)
       }
@@ -133,18 +136,24 @@ function * _validateTransfer ({
     return _reject(plugin, transfer.id, 'no-execution')
   }
 
-  const { address, amount, expiresAt } =
+  const { destinationAccount, destinationAmount, data } =
     Packet.parseFromTransfer(transfer)
 
-  if (address.indexOf(account) !== 0) {
+  const decryptedData = data.blob
+    ? cryptoHelper.aesDecryptObject(data.blob, secret)
+    : {}
+
+  const expiresAt = decryptedData.expiresAt
+
+  if (destinationAccount.indexOf(account) !== 0) {
     debug('notified of transfer for another account: account=' +
-      address +
+      destinationAccount +
       ' me=' +
       account)
     throw new Error('not-my-packet')
   }
 
-  const localPart = address.slice(account.length + 1)
+  const localPart = destinationAccount.slice(account.length + 1)
   const [ addressProtocol, addressReceiverId ] = localPart.split('.')
 
   if (addressProtocol !== '~' + protocol) {
@@ -160,19 +169,19 @@ function * _validateTransfer ({
     throw new Error('not-my-packet')
   }
 
-  const transferAmount = new BigNumber(transfer.amount)
+  const amount = new BigNumber(transfer.amount)
 
-  if (transferAmount.lessThan(amount)) {
+  if (amount.lessThan(destinationAmount)) {
     debug('notified of transfer amount smaller than packet amount:' +
       ' transfer=' + transfer.amount +
-      ' packet=' + amount)
+      ' packet=' + destinationAmount)
     throw new Error('insufficient')
   }
 
-  if (!allowOverPayment && transferAmount.greaterThan(amount)) {
+  if (!allowOverPayment && amount.greaterThan(destinationAmount)) {
     debug('notified of transfer amount larger than packet amount:' +
       ' transfer=' + transfer.amount +
-      ' packet=' + amount)
+      ' packet=' + destinationAmount)
     throw new Error('overpayment')
   }
 

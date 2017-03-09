@@ -9,18 +9,16 @@ describe('Packet', function () {
     this.packet = {
       ilp_header: {
         amount: '10',
-        address: 'test.example.alice',
+        account: 'test.example.alice',
         data: {
-          expires_at: '2017-03-07T11:06:47.752Z',
-          data: { foo: 'bar' }
+          foo: 'bar'
         }
       }
     }
 
     this.parsed = {
-      amount: '10',
-      address: 'test.example.alice',
-      expiresAt: '2017-03-07T11:06:47.752Z',
+      destinationAmount: '10',
+      destinationAccount: 'test.example.alice',
       data: { foo: 'bar' }
     }
 
@@ -43,26 +41,18 @@ describe('Packet', function () {
 
     it('should not parse a packet w/o amount', function () {
       delete this.packet.ilp_header.amount
-      assert.throws(() => Packet.parse(this.packet), /missing amount/)
+      assert.throws(() => Packet.parse(this.packet),
+        /missing amount/)
     })
 
-    it('should not parse a packet w/o address', function () {
-      delete this.packet.ilp_header.address
-      assert.throws(() => Packet.parse(this.packet), /missing address/)
+    it('should not parse a packet w/o account', function () {
+      delete this.packet.ilp_header.account
+      assert.throws(() => Packet.parse(this.packet),
+        /missing account/)
     })
 
     it('should parse a packet w/o data', function () {
       delete this.packet.ilp_header.data
-      Packet.parse(this.packet)
-    })
-
-    it('should parse a packet w/o data.data', function () {
-      delete this.packet.ilp_header.data.data
-      Packet.parse(this.packet)
-    })
-
-    it('should parse a packet w/o data.expires_at', function () {
-      delete this.packet.ilp_header.data.expires_at
       Packet.parse(this.packet)
     })
   })
@@ -74,23 +64,20 @@ describe('Packet', function () {
         this.packet)
     })
 
-    it('should not serialize a packet w/o amount', function () {
-      delete this.parsed.amount
-      assert.throws(() => Packet.serialize(this.parsed), /requires an amount/)
+    it('should not serialize a packet w/o destinationAmount', function () {
+      delete this.parsed.destinationAmount
+      assert.throws(() => Packet.serialize(this.parsed),  
+        /requires a destinationAmount/)
     })
 
-    it('should not serialize a packet w/o address', function () {
-      delete this.parsed.address
-      assert.throws(() => Packet.serialize(this.parsed), /requires an address/)
+    it('should not serialize a packet w/o destinationAccount', function () {
+      delete this.parsed.destinationAccount
+      assert.throws(() => Packet.serialize(this.parsed),
+        /requires a destinationAccount/)
     })
 
     it('should serialize a packet w/o data', function () {
       delete this.parsed.data
-      Packet.serialize(this.parsed)
-    })
-
-    it('should serialize a packet w/o expiresAt', function () {
-      delete this.parsed.expiresAt
       Packet.serialize(this.parsed)
     })
   })

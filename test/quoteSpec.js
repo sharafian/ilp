@@ -99,17 +99,17 @@ describe('ILQP', function () {
         .to.be.rejectedWith(/provide source or destination amount but not both/)
     })
 
-    it('should return undefined if there are no connectors', function * () {
+    it('should throw if there are no connectors', function * () {
       this.params.connectors = []
-      const response = yield ILQP.quote(this.plugin, this.params)
-      assert.equal(response, undefined)
+      yield expect(ILQP.quote(this.plugin, this.params))
+        .to.be.rejectedWith(/no connectors specified/)    
     })
 
-    it('should return undefined on a timeout', function * () {
+    it('should throw on a timeout', function * () {
       this.plugin.sendMessage = () => Promise.resolve(null)
       this.params.timeout = 10
-      const response = yield ILQP.quote(this.plugin, this.params)
-      assert.equal(response, undefined)
+      yield expect(ILQP.quote(this.plugin, this.params))
+        .to.be.rejectedWith(/timed out/)
     })
 
     describe('quoteByPacket', function () {
@@ -120,8 +120,8 @@ describe('ILQP', function () {
         const response = yield ILQP.quoteByPacket(
           this.plugin,
           Packet.serialize({
-            amount: '1',
-            address: 'test.local.bob'
+            destinationAmount: '1',
+            destinationAccount: 'test.local.bob'
           })
         )
         assert.deepEqual(
@@ -151,11 +151,10 @@ describe('ILQP', function () {
         this.response.data.data)
     })
 
-    it('should resolve to undefined on an error', function * () {
+    it('should throw on an error', function * () {
       this.params.timeout = 10
-      const response = yield ILQP._getQuote(this.params)
-
-      assert.equal(response, undefined)
+      yield expect(ILQP._getQuote(this.params))
+        .to.be.rejectedWith(/timed out/)
     })
   })
 
