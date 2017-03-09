@@ -14,7 +14,7 @@ const { safeConnect } = require('../utils')
 function _safeDecrypt (data, secret) {
   if (!data.blob) return {}
   try {
-    return cryptoHelper.aesDecryptObject(data.blob, secret) 
+    return cryptoHelper.aesDecryptObject(data.blob, secret)
   } catch (err) {
     debug('decryption error:', err.message)
     return undefined
@@ -34,8 +34,8 @@ function createPacketAndCondition ({
   assert(Buffer.isBuffer(secret), 'secret must be a buffer')
 
   const receiverId = base64url(cryptoHelper.getReceiverId(secret))
-  const address = destinationAccount + '.~' + protocol + '.' + receiverId
-    + (id ? ('.' + id) : '')
+  const address = destinationAccount + '.~' + protocol + '.' + receiverId +
+    (id ? ('.' + id) : '')
 
   const blobData = { expiresAt, data }
   const blob = data &&
