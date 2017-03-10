@@ -22,7 +22,7 @@ function getFromTransfer (transfer) {
   assert(Buffer.isBuffer(transfer.ilp || transfer.data),
     'transfer.ilp or transfer.data must be buffer')
 
-  return transfer.ilp || transfer.data
+  return transfer.ilp
 }
 
 function parseFromTransfer (transfer) {

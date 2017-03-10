@@ -13,7 +13,7 @@ module.exports = class MockPlugin extends EventEmitter2 {
   getInfo () {
     return {
       prefix: 'test.example.',
-      connectors: [ 'test.connie' ],
+      connectors: [ 'test.example.connie' ],
       precision: 19,
       scale: 9
     }

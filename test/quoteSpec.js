@@ -47,6 +47,10 @@ describe('ILQP', function () {
       }
 
       this.plugin.sendMessage = (msg) => {
+        assert.equal(msg.to, 'test.example.connie')
+        assert.isObject(msg.data)
+        assert.equal(msg.data.method, 'quote_request')
+
         this.response.data.id = msg.data.id
         this.plugin.emit('incoming_message', this.response)
         return Promise.resolve(null)
@@ -95,25 +99,27 @@ describe('ILQP', function () {
       this.params.destinationAddress = 'test.example.bob'
       const response = yield ILQP.quote(this.plugin, this.params)
 
-      delete this.result.connectorAccount // local quote has no connector
+      // connectorAccount should be set to destination for local ILP payment
+      this.result.connectorAccount = this.params.destinationAddress
+
       assert.deepEqual(response,
         this.result)
     })
 
-    it('should throw if source and dest amounts are defined', function * () {
+    it('should reject if source and dest amounts are defined', function * () {
       this.params.destinationAmount = this.params.sourceAmount = '1'
 
       yield expect(ILQP.quote(this.plugin, this.params))
         .to.be.rejectedWith(/provide source or destination amount but not both/)
     })
 
-    it('should throw if there are no connectors', function * () {
+    it('should reject if there are no connectors', function * () {
       this.params.connectors = []
       yield expect(ILQP.quote(this.plugin, this.params))
         .to.be.rejectedWith(/no connectors specified/)    
     })
 
-    it('should throw on a timeout', function * () {
+    it('should reject on a timeout', function * () {
       this.plugin.sendMessage = () => Promise.resolve(null)
       this.params.timeout = 10
       yield expect(ILQP.quote(this.plugin, this.params))
@@ -159,7 +165,7 @@ describe('ILQP', function () {
         this.response.data.data)
     })
 
-    it('should throw on an error', function * () {
+    it('should reject on an error', function * () {
       this.params.timeout = 10
       yield expect(ILQP._getQuote(this.params))
         .to.be.rejectedWith(/timed out/)
@@ -170,7 +176,7 @@ describe('ILQP', function () {
     beforeEach(function () {
       this.params = {
         plugin: this.plugin, 
-        method: 'quote_response',
+        responseMethod: 'quote_response',
         message: {
           data: { id: this.id }
         }

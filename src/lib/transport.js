@@ -16,7 +16,7 @@ function _safeDecrypt (data, secret) {
   try {
     return cryptoHelper.aesDecryptObject(data, secret)
   } catch (err) {
-    debug('decryption error:', err.message)
+    debug('decryption error="' + err.message + '"', 'data="' + data + '"')
     return undefined
   }
 }
@@ -110,7 +110,11 @@ function * listen (plugin, {
         ' match the one we generate.' +
         ' executionCondition=' + transfer.executionCondition +
         ' our condition=' + cc.toCondition(preimage))
-      return yield _reject(plugin, transfer.id, 'condition-mismatch')
+      return yield _reject(plugin, transfer.id, {
+        code: 'S05',
+        name: 'Wrong Condition',
+        message: 'receiver generated a different condition from the transfer'
+      })
     }
 
     const parsed = Packet.parseFromTransfer(transfer)
@@ -120,17 +124,27 @@ function * listen (plugin, {
     const decryptedData = _safeDecrypt(data, secret)
     const fulfillment = cc.toFulfillment(preimage)
 
-    callback({
-      transfer: transfer,
-      data: decryptedData,
-      destinationAccount,
-      destinationAmount,
-      fulfill: function () {
-        return plugin.fulfillCondition(transfer.id, fulfillment)
-      }
-    })
+    try {
+      yield Promise.resolve(callback({
+        transfer: transfer,
+        data: decryptedData,
+        destinationAccount,
+        destinationAmount,
+        fulfill: function () {
+          return plugin.fulfillCondition(transfer.id, fulfillment)
+        }
+      }))
 
-    // for debugging purposes
+    } catch (e) {
+      // reject immediately and pass the error if review rejects
+      return _reject(plugin, transfer.id, {
+        code: 'S00',
+        name: 'Bad Request',
+        message: 'rejected-by-receiver: ' +
+          (e.message || 'reason not specified')
+      })
+    }
+
     return true
   }
 

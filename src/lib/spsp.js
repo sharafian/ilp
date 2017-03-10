@@ -140,9 +140,7 @@ function * sendPayment (plugin, payment) {
 
   yield plugin.sendTransfer({
     id: payment.id,
-    // TODO: should connectorAccount become destinationAccount when
-    // there is no connector?
-    to: payment.connectorAccount || payment.destinationAccount,
+    to: payment.connectorAccount,
     amount: payment.sourceAmount,
     ilp: packet,
     executionCondition: condition,

@@ -334,9 +334,12 @@ describe('Transport', function () {
       yield this.rejected
     })
 
-    it('should pass the fulfill function to the callback', function * () {
+    it('should pass the fulfill function, transfer, decrypted data, destinationAmount, and destinationAccount to the callback', function * () {
       const fulfilled = new Promise((resolve) => {
-        this.plugin.fulfillCondition = resolve 
+        this.plugin.fulfillCondition = () => {
+          resolve()
+          return Promise.resolve()
+        }
       })
 
       this.callback = (details) => {
@@ -351,6 +354,29 @@ describe('Transport', function () {
       yield Transport.listen(this.plugin, this.params, this.callback, 'ipr')
       yield this.plugin.emitAsync('incoming_prepare', this.transfer)
       yield fulfilled
+    })
+
+    it('should reject if the listen callback rejects', function * () {
+      const rejected = new Promise((resolve) => {
+        this.plugin.rejectIncomingTransfer = () => {
+          resolve()
+          return Promise.resolve()
+        }
+      })
+
+      this.callback = (details) => {
+        throw new Error('I don\'t want that transfer')
+      }
+
+      yield Transport.listen(this.plugin, this.params, this.callback, 'ipr')
+      const res = yield this.plugin.emitAsync('incoming_prepare', this.transfer)
+      assert.deepEqual(res[0], {
+        code: 'S00',
+        message: 'rejected-by-receiver: I don\'t want that transfer',
+        name: 'Bad Request'
+      })
+
+      yield rejected
     })
   })
 })

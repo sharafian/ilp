@@ -39,7 +39,7 @@ function * _handleConnectorResponses (connectors, promises) {
 
 function _sendAndReceiveMessage ({
   plugin,
-  method,
+  responseMethod,
   message,
   timeout
 }) {
@@ -54,8 +54,8 @@ function _sendAndReceiveMessage ({
       if (!data || data.id !== id) return
       if (data.method === 'error') reject(data.data.message)
 
-      if (data.method === method) {
-        debug('response of type', method)
+      if (data.method === responseMethod) {
+        debug('response of type', responseMethod)
         plugin.removeListener('incoming_message', onIncomingMessage)
         resolve(response)
       }
@@ -83,11 +83,11 @@ function _getQuote ({
   debug('remote quote connector=' + connector, 'query=' + JSON.stringify(quoteQuery))
   return _sendAndReceiveMessage({
     plugin: plugin,
-    method: 'quote_response',
+    responseMethod: 'quote_response',
     timeout: timeout,
     message: {
       ledger: prefix,
-      account: connector,
+      to: connector,
       data: {
         method: 'quote_request',
         data: quoteQuery
@@ -142,6 +142,8 @@ function * quote (plugin, {
   if (startsWith(prefix, destinationAddress)) {
     debug('returning a local transfer to', destinationAddress, 'for', amount)
     return omitUndefined({
+      // send directly to the destination
+      connectorAccount: destinationAddress,
       sourceAmount: amount,
       destinationAmount: amount,
       sourceExpiryDuration: destinationExpiryDuration
@@ -157,7 +159,9 @@ function * quote (plugin, {
   })
 
   const quoteConnectors = connectors || plugin.getInfo().connectors || []
-  debug('quoting', amount, 'via', quoteConnectors)
+  debug('quoting', amount,
+    (sourceAmount ? '(source amount)':'(destination amount)'),
+    'to', destinationAddress, 'via', quoteConnectors)
 
   // handle connector responses will return all successful quotes, or
   // throw all errors if there were none.
@@ -173,7 +177,8 @@ function * quote (plugin, {
   return omitUndefined({
     sourceAmount: sourceAmount || bestQuote.source_amount,
     destinationAmount: destinationAmount || bestQuote.destination_amount,
-    connectorAccount: bestQuote.source_connector_account,
+    // try to send directly to the destination if there's no connector
+    connectorAccount: bestQuote.source_connector_account || destinationAddress,
     sourceExpiryDuration: bestQuote.source_expiry_duration ||
       DEFAULT_EXPIRY_DURATION,
     // current time plus sourceExpiryDuration, for convenience
