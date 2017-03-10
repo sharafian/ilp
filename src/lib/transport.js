@@ -9,7 +9,7 @@ const debug = require('debug')('ilp:transport')
 const assert = require('assert')
 const base64url = require('../utils/base64url')
 const BigNumber = require('bignumber.js')
-const { safeConnect } = require('../utils')
+const { safeConnect, omitUndefined } = require('../utils')
 
 function _safeDecrypt (data, secret) {
   if (!data) return {}
@@ -37,9 +37,12 @@ function createPacketAndCondition ({
   const address = destinationAccount + '.~' + protocol + '.' + receiverId +
     (id ? ('.' + id) : '')
 
-  const blobData = { expiresAt, data }
-  const blob = data &&
-    base64url(cryptoHelper.aesEncryptObject(blobData, secret))
+  const blobData = omitUndefined({
+    expires_at: expiresAt,
+    data: data
+  })
+
+  const blob = base64url(cryptoHelper.aesEncryptObject(blobData, secret))
 
   const packet = Packet.serialize({
     account: address,
@@ -60,7 +63,11 @@ function createPacketAndCondition ({
 
 function _reject (plugin, id, reason) {
   return plugin
-    .rejectIncomingTransfer(id, reason)
+    .rejectIncomingTransfer(id, Object.assign({
+      triggered_by: plugin.getAccount(),
+      triggered_at: moment().format(),
+      additional_info: {}
+    }, reason))
     .then(() => reason)
 }
 
@@ -110,13 +117,7 @@ function * listen (plugin, {
     const destinationAmount = parsed.amount
     const destinationAccount = parsed.account
     const data = parsed.data
-
     const decryptedData = _safeDecrypt(data, secret)
-
-    if (decryptedData === undefined) {
-      return yield _reject(plugin, transfer.id, 'corrupted-ciphertext')
-    }
-
     const fulfillment = cc.toFulfillment(preimage)
 
     callback({
@@ -153,21 +154,34 @@ function * _validateOrRejectTransfer ({
 
   if (!transfer.executionCondition) {
     debug('notified of transfer without executionCondition ', transfer)
-    return yield _reject(plugin, transfer.id, 'no-execution')
+    return yield _reject(plugin, transfer.id, {
+      code: 'S00',
+      name: 'Bad Request',
+      message: 'got notification of transfer without executionCondition'
+    })
+  }
+
+  if (!transfer.ilp && !transfer.data) {
+    debug('got notification of transfer with no packet attached')
+    return yield _reject(plugin, transfer.id, {
+      code: 'S01',
+      name: 'Invalid Packet',
+      message: 'got notification of transfer with no packet attached'
+    })
   }
 
   const parsed = Packet.parseFromTransfer(transfer)
+  if (parsed === undefined) {
+    return yield _reject(plugin, transfer.id, {
+      code: 'S01',
+      name: 'Invalid Packet',
+      message: 'got notification of transfer with invalid ILP packet'
+    })
+  }
+
   const destinationAmount = parsed.amount
   const destinationAccount = parsed.account
   const data = parsed.data
-
-  const decryptedData = _safeDecrypt(data, secret)
-
-  if (decryptedData === undefined) {
-    return yield _reject(plugin, transfer.id, 'corrupted-ciphertext')
-  }
-
-  const expiresAt = decryptedData.expiresAt
 
   if (destinationAccount.indexOf(account) !== 0) {
     debug('notified of transfer for another account: account=' +
@@ -193,25 +207,48 @@ function * _validateOrRejectTransfer ({
     return 'not-my-packet'
   }
 
+  const decryptedData = _safeDecrypt(data, secret)
+
+  if (decryptedData === undefined) {
+    return yield _reject(plugin, transfer.id, {
+      code: 'S01',
+      name: 'Invalid Packet',
+      message: 'got notification of packet with corrupted ciphertext'
+    })
+  }
+
+  const expiresAt = decryptedData.expires_at
   const amount = new BigNumber(transfer.amount)
 
   if (amount.lessThan(destinationAmount)) {
     debug('notified of transfer amount smaller than packet amount:' +
       ' transfer=' + transfer.amount +
       ' packet=' + destinationAmount)
-    return yield _reject(plugin, transfer.id, 'insufficient')
+    return yield _reject(plugin, transfer.id, {
+      code: 'S04',
+      name: 'Insufficient Destination Amount',
+      message: 'got notification of transfer where amount is less than expected'
+    })
   }
 
   if (!allowOverPayment && amount.greaterThan(destinationAmount)) {
     debug('notified of transfer amount larger than packet amount:' +
       ' transfer=' + transfer.amount +
       ' packet=' + destinationAmount)
-    return yield _reject(plugin, transfer.id, 'overpayment')
+    return yield _reject(plugin, transfer.id, {
+      code: 'S03',
+      name: 'Invalid Amount',
+      message: 'got notification of transfer where amount is more than expected'
+    })
   }
 
   if (expiresAt && moment().isAfter(expiresAt)) {
     debug('notified of transfer with expired packet:', transfer)
-    return yield _reject(plugin, transfer.id, 'expired')
+    return yield _reject(plugin, transfer.id, {
+      code: 'R01',
+      name: 'Payment Timed Out',
+      message: 'got notification of transfer with expired packet'
+    })
   }
 }
 

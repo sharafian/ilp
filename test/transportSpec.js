@@ -174,9 +174,12 @@ describe('Transport', function () {
 
     it('should ignore transfer without condition', function * () {
       delete this.params.transfer.executionCondition
-      assert.equal(
+      assert.deepEqual(
         yield Transport._validateOrRejectTransfer(this.params),
-        'no-execution')
+        { code: 'S00',
+          message: 'got notification of transfer without executionCondition',
+          name: 'Bad Request'
+        })
     })
 
     it('should ignore transfer for other account', function * () {
@@ -211,17 +214,25 @@ describe('Transport', function () {
 
     it('should reject transfer for too little money', function * () {
       this.params.transfer.amount = '0.1'
-      assert.equal(
+      assert.deepEqual(
         yield Transport._validateOrRejectTransfer(this.params),
-        'insufficient')
+        { code: 'S04',
+          message: 'got notification of transfer where amount is less than expected',
+          name: 'Insufficient Destination Amount'
+        })
+
       yield this.rejected
     })
 
     it('should reject transfer for too much money', function * () {
       this.params.transfer.amount = '1.1'
-      assert.equal(
+      assert.deepEqual(
         yield Transport._validateOrRejectTransfer(this.params),
-        'overpayment')
+        { code: 'S03',
+          message: 'got notification of transfer where amount is more than expected',
+          name: 'Invalid Amount'
+        })
+
       yield this.rejected
     })
 
@@ -245,9 +256,13 @@ describe('Transport', function () {
 
       this.params.transfer.ilp = packet
 
-      assert.equal(
+      assert.deepEqual(
         yield Transport._validateOrRejectTransfer(this.params),
-        'expired')
+        { code: 'R01',
+          message: 'got notification of transfer with expired packet',
+          name: 'Payment Timed Out'
+        })
+
       yield this.rejected
     })
   })
