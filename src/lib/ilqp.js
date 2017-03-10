@@ -1,7 +1,7 @@
 'use strict'
 
 const co = require('co')
-const Packet = require('./packet')
+const Packet = require('../utils/packet')
 const debug = require('debug')('ilp:ilqp')
 const moment = require('moment')
 const BigNumber = require('bignumber.js')

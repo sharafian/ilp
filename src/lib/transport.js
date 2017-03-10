@@ -1,6 +1,6 @@
 'use strict'
 
-const Packet = require('./packet')
+const Packet = require('../utils/packet')
 const moment = require('moment')
 const cryptoHelper = require('../utils/crypto')
 const cc = require('../utils/condition')

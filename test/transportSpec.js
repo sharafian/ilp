@@ -10,7 +10,7 @@ const moment = require('moment')
 
 const ILP = require('..')
 const Transport = require('../src/lib/transport')
-const Packet = require('../src/lib/packet')
+const Packet = require('../src/utils/packet')
 const MockPlugin = require('./mocks/mockPlugin')
 const { wait } = require('../src/utils')
 
@@ -43,7 +43,7 @@ describe('Transport', function () {
       }
 
       this.validate = (result) => {
-        const { account, amount, data } = ILP.Packet.parse(result.packet)
+        const { account, amount, data } = Packet.parse(result.packet)
 
         // the data is still encrypted, so we can't check it from just parsing
         assert.isString(data)
@@ -62,7 +62,7 @@ describe('Transport', function () {
       const result = Transport.createPacketAndCondition(this.params, 'psk')
       this.validate(result)
 
-      const parsed = ILP.Packet.parse(result.packet)
+      const parsed = Packet.parse(result.packet)
       assert.match(parsed.account,
         /test\.example\.alice\.~psk\..{8}/)
     })
