@@ -1,11 +1,11 @@
 <h1 align="center">
   <a href="https://interledger.org"><img src="ilp_logo.png" width="150"></a>
   <br>
-  ILP Client
+  ILP
 </h1>
 
 <h4 align="center">
-A low-level JS <a href="https://interledger.org">Interledger</a> sender/receiver library
+A low-level JS <a href="https://interledger.org">Interledger</a> library
 </h4>
 
 <br>
@@ -23,19 +23,14 @@ A low-level JS <a href="https://interledger.org">Interledger</a> sender/receiver
 [snyk-image]: https://snyk.io/test/npm/ilp/badge.svg
 [snyk-url]: https://snyk.io/test/npm/ilp
 
-This is a low-level interface to ILP, largely intended for building ILP into other [Application layer](https://github.com/interledger/rfcs/tree/master/0001-interledger-architecture) protocols.
+This module bundles low-level and high-level interfaces to ILP, largely intended for building ILP into other [Application layer](https://github.com/interledger/rfcs/tree/master/0001-interledger-architecture) protocols.
 
-#### The ILP Client includes:
+#### The ILP module includes:
 
 * [Interledger Payment Request (IPR)](#interledger-payment-request-ipr-transport-protocol) Transport Protocol, an interactive protocol in which the receiver specifies the payment details, including the condition
 * [Pre-Shared Key (PSK)](#pre-shared-key-psk-transport-protocol) Transport Protocol, a non-interactive protocol in which the sender creates the payment details and uses a shared secret to generate the conditions
+* [Simple Payment Setup Protocol (SPSP)](#simple-payment-setup-protocol-spsp), a higher level interface for sending ILP payments, which requires the receiver to have an SPSP server.
 * Interledger Quoting and the ability to send through multiple ledger types using [Ledger Plugins](https://github.com/interledgerjs?utf8=✓&q=ilp-plugin)
-
-#### The ILP Client does **not** handle:
-
-* Account discovery
-* Amount negotiation
-* Communication of requests from recipient to sender
 
 ## Installation
 
