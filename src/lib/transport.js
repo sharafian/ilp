@@ -134,9 +134,9 @@ function * listen (plugin, {
           return plugin.fulfillCondition(transfer.id, fulfillment)
         }
       }))
-
     } catch (e) {
       // reject immediately and pass the error if review rejects
+
       return _reject(plugin, transfer.id, {
         code: 'S00',
         name: 'Bad Request',

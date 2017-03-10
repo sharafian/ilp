@@ -155,12 +155,12 @@ function * quote (plugin, {
     source_amount: sourceAmount,
     destination_address: destinationAddress,
     destination_amount: destinationAmount,
-    destination_expiry_duration: destinationExpiryDuration,
+    destination_expiry_duration: destinationExpiryDuration
   })
 
   const quoteConnectors = connectors || plugin.getInfo().connectors || []
   debug('quoting', amount,
-    (sourceAmount ? '(source amount)':'(destination amount)'),
+    (sourceAmount ? '(source amount)' : '(destination amount)'),
     'to', destinationAddress, 'via', quoteConnectors)
 
   // handle connector responses will return all successful quotes, or

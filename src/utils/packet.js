@@ -2,8 +2,6 @@
 
 const IlpPacket = require('ilp-packet')
 const assert = require('assert')
-const { omitUndefined } = require('../utils')
-const base64url = require('../utils/base64url')
 const debug = require('debug')('ilp:packet')
 
 const serialize = IlpPacket.serializeIlpPayment
@@ -15,7 +13,7 @@ const parse = (packet) => {
     return undefined
   }
 }
-  
+
 function getFromTransfer (transfer) {
   assert(transfer, 'transfer must be defined. got: ' + transfer)
   assert(typeof transfer === 'object', 'got invalid transfer: ' + transfer)
