@@ -128,8 +128,8 @@ describe('ILQP', function () {
         const response = yield ILQP.quoteByPacket(
           this.plugin,
           Packet.serialize({
-            destinationAmount: '1',
-            destinationAccount: 'test.local.bob'
+            amount: '1',
+            account: 'test.local.bob'
           })
         )
         assert.deepEqual(

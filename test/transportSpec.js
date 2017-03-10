@@ -10,6 +10,7 @@ const moment = require('moment')
 
 const ILP = require('..')
 const Transport = require('../src/lib/transport')
+const Packet = require('../src/lib/packet')
 const MockPlugin = require('./mocks/mockPlugin')
 const { wait } = require('../src/utils')
 
@@ -42,13 +43,12 @@ describe('Transport', function () {
       }
 
       this.validate = (result) => {
-        const { destinationAccount, destinationAmount, data } =
-          ILP.Packet.parse(result.packet)
+        const { account, amount, data } = ILP.Packet.parse(result.packet)
 
         // the data is still encrypted, so we can't check it from just parsing
-        assert.isString(data.blob)
-        assert.equal(destinationAmount, '1')
-        assert.match(destinationAccount, /^test\.example\.alice\.~(psk|ipr)/)
+        assert.isString(data)
+        assert.equal(amount, '1')
+        assert.match(account, /^test\.example\.alice\.~(psk|ipr)/)
       }
     })
 
@@ -63,7 +63,7 @@ describe('Transport', function () {
       this.validate(result)
 
       const parsed = ILP.Packet.parse(result.packet)
-      assert.match(parsed.destinationAccount,
+      assert.match(parsed.account,
         /test\.example\.alice\.~psk\..{8}/)
     })
 
@@ -144,6 +144,7 @@ describe('Transport', function () {
         expiresAt: moment().add(1, 'seconds').format(),
       }, 'ipr')
 
+      this.packet = packet
       this.params = {
         protocol: 'ipr',
         id: 'ee39d171-cdd5-4268-9ec8-acc349666055',
@@ -155,7 +156,7 @@ describe('Transport', function () {
           to: 'test.example.alice',
           from: 'test.example.connie',
           executionCondition: condition,
-          data: packet
+          ilp: packet
         }
       }
 
@@ -179,24 +180,29 @@ describe('Transport', function () {
     })
 
     it('should ignore transfer for other account', function * () {
-      this.params.transfer.data.ilp_header.account =
-        'test.example.garbage'
+      this.params.transfer.ilp = Packet.serialize(Object.assign(
+        Packet.parse(this.packet),
+        { account: 'test.example.garbage' }))
+
       assert.equal(
         yield Transport._validateOrRejectTransfer(this.params),
         'not-my-packet')
     })
 
     it('should not accept transfer for other protocol', function * () {
-      this.params.transfer.data.ilp_header.account =
-        'test.example.alice.~ekp'
+      this.params.transfer.ilp = Packet.serialize(Object.assign(
+        Packet.parse(this.packet),
+        { account: 'test.example.alice.~ekp' }))
+
       assert.equal(
         yield Transport._validateOrRejectTransfer(this.params),
         'not-my-packet')
     })
 
     it('should not accept transfer for other receiver', function * () {
-      this.params.transfer.data.ilp_header.account =
-        'test.example.alice.~ipr.garbage'
+      this.params.transfer.ilp = Packet.serialize(Object.assign(
+        Packet.parse(this.packet),
+        { account: 'test.example.alice.~ipr.garbage' }))
 
       assert.equal(
         yield Transport._validateOrRejectTransfer(this.params),
@@ -237,7 +243,7 @@ describe('Transport', function () {
         expiresAt: moment().add(-1, 'seconds').format(),
       }, 'ipr')
 
-      this.params.transfer.data = packet
+      this.params.transfer.ilp = packet
 
       assert.equal(
         yield Transport._validateOrRejectTransfer(this.params),
@@ -269,7 +275,7 @@ describe('Transport', function () {
         to: 'test.example.alice.~ipr.GbLOVv3YyLo',
         from: 'test.example.connie',
         executionCondition: condition,
-        data: packet
+        ilp: packet
       }
 
       // detect when autofulfill promise has resolved
@@ -305,7 +311,7 @@ describe('Transport', function () {
     })
 
     it('should reject when packet details have been changed', function * () {
-      this.transfer.data.ilp_header.data.blob += 'a'
+      this.transfer.ilp = Buffer.concat([this.transfer.ilp, Buffer.from('00', 'hex')])
       yield Transport.listen(this.plugin, this.params, this.callback, 'ipr')
 
       // listener returns false for debug purposes

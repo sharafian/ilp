@@ -12,9 +12,9 @@ const BigNumber = require('bignumber.js')
 const { safeConnect } = require('../utils')
 
 function _safeDecrypt (data, secret) {
-  if (!data.blob) return {}
+  if (!data) return {}
   try {
-    return cryptoHelper.aesDecryptObject(data.blob, secret)
+    return cryptoHelper.aesDecryptObject(data, secret)
   } catch (err) {
     debug('decryption error:', err.message)
     return undefined
@@ -42,9 +42,9 @@ function createPacketAndCondition ({
     base64url(cryptoHelper.aesEncryptObject(blobData, secret))
 
   const packet = Packet.serialize({
-    destinationAccount: address,
-    destinationAmount,
-    data: { blob }
+    account: address,
+    amount: destinationAmount,
+    data: blob
   })
 
   const condition = base64url(cc.toCondition(
@@ -106,8 +106,11 @@ function * listen (plugin, {
       return yield _reject(plugin, transfer.id, 'condition-mismatch')
     }
 
-    const { destinationAccount, destinationAmount, data } =
-      Packet.parseFromTransfer(transfer)
+    const parsed = Packet.parseFromTransfer(transfer)
+    const destinationAmount = parsed.amount
+    const destinationAccount = parsed.account
+    const data = parsed.data
+
     const decryptedData = _safeDecrypt(data, secret)
 
     if (decryptedData === undefined) {
@@ -153,8 +156,10 @@ function * _validateOrRejectTransfer ({
     return yield _reject(plugin, transfer.id, 'no-execution')
   }
 
-  const { destinationAccount, destinationAmount, data } =
-    Packet.parseFromTransfer(transfer)
+  const parsed = Packet.parseFromTransfer(transfer)
+  const destinationAmount = parsed.amount
+  const destinationAccount = parsed.account
+  const data = parsed.data
 
   const decryptedData = _safeDecrypt(data, secret)
 

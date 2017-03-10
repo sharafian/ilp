@@ -144,7 +144,7 @@ function * sendPayment (plugin, payment) {
     // there is no connector?
     to: payment.connectorAccount || payment.destinationAccount,
     amount: payment.sourceAmount,
-    data: packet,
+    ilp: packet,
     executionCondition: condition,
     expiresAt: moment()
       .add(payment.sourceExpiryDuration, 'seconds')

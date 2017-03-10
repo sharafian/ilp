@@ -117,8 +117,6 @@ function _getCheaperQuote (quote1, quote2) {
   * @param {String} [query.destinationAmount] Either the sourceAmount or destinationAmount must be specified
   * @param {String|Number} [query.sourceExpiryDuration] Number of seconds between when the source transfer is proposed and when it expires.
   * @param {String|Number} [query.destinationExpiryDuration] Number of seconds between when the destination transfer is proposed and when it expires.
-  * @param {Object} [query.destinationPrecision] Precision of destination ledger
-  * @param {Object} [query.destinationScale] Scale of destination ledger
   * @param {Array} [query.connectors] List of ILP addresses of connectors to use for this quote.
   * @returns {Promise<Quote>}
   */
@@ -129,8 +127,6 @@ function * quote (plugin, {
   destinationAmount,
   sourceExpiryDuration,
   destinationExpiryDuration,
-  destinationPrecision,
-  destinationScale,
   connectors,
   timeout
 }) {
@@ -158,7 +154,6 @@ function * quote (plugin, {
     destination_address: destinationAddress,
     destination_amount: destinationAmount,
     destination_expiry_duration: destinationExpiryDuration,
-    destination_precision: destinationPrecision
   })
 
   const quoteConnectors = connectors || plugin.getInfo().connectors || []
@@ -191,10 +186,10 @@ function * quote (plugin, {
 }
 
 function * quoteByPacket (plugin, packet) {
-  const { destinationAddress, destinationAmount } = Packet.parse(packet)
+  const { address, amount } = Packet.parse(packet)
   return yield quote(plugin, {
-    destinationAmount,
-    destinationAddress
+    destinationAmount: amount,
+    destinationAddress: address
   })
 }
 
