@@ -57,7 +57,18 @@ describe('ILQP', function () {
       }
     })
 
-    it('should return a quote from the connector', function * () {
+    it('should quote by source amount', function * () {
+      this.result.expiresAt = moment().format()
+      const response = yield ILQP.quote(this.plugin, this.params)
+      assert.deepEqual(
+        response,
+        this.result)
+    })
+
+    it('should quote by destination amount', function * () {
+      this.params.destinationAmount = this.params.sourceAmount
+      delete this.params.sourceAmount
+
       this.result.expiresAt = moment().format()
       const response = yield ILQP.quote(this.plugin, this.params)
       assert.deepEqual(
@@ -82,17 +93,6 @@ describe('ILQP', function () {
 
       yield expect(ILQP.quote(this.plugin, this.params))
         .to.be.rejectedWith(/no connectors specified/)    
-    })
-
-    it('should quote by destination amount', function * () {
-      this.params.destinationAmount = this.params.sourceAmount
-      delete this.params.sourceAmount
-
-      this.result.expiresAt = moment().format()
-      const response = yield ILQP.quote(this.plugin, this.params)
-      assert.deepEqual(
-        response,
-        this.result)
     })
 
     it('should return a local quote if destination is local', function * () {
