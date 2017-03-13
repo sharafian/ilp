@@ -326,7 +326,7 @@ describe('Transport', function () {
     })
 
     it('should reject when packet details have been changed', function * () {
-      this.transfer.ilp = Buffer.concat([this.transfer.ilp, Buffer.from('00', 'hex')])
+      this.transfer.ilp = this.transfer.ilp + '0'
       yield Transport.listen(this.plugin, this.params, this.callback, 'ipr')
 
       // listener returns false for debug purposes

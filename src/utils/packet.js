@@ -3,11 +3,15 @@
 const IlpPacket = require('ilp-packet')
 const assert = require('assert')
 const debug = require('debug')('ilp:packet')
+const base64url = require('./base64url')
 
-const serialize = IlpPacket.serializeIlpPayment
+const serialize = (p) => {
+  return base64url(IlpPacket.serializeIlpPayment(p))
+}
+
 const parse = (packet) => {
   try {
-    return IlpPacket.deserializeIlpPayment(packet)
+    return IlpPacket.deserializeIlpPayment(Buffer.from(packet, 'base64'))
   } catch (e) {
     debug('error while parsing packet: ' + e.message)
     return undefined
@@ -17,8 +21,9 @@ const parse = (packet) => {
 function getFromTransfer (transfer) {
   assert(transfer, 'transfer must be defined. got: ' + transfer)
   assert(typeof transfer === 'object', 'got invalid transfer: ' + transfer)
-  assert(Buffer.isBuffer(transfer.ilp),
-    'transfer.ilp or transfer.data must be buffer')
+  assert(typeof transfer.ilp == 'string' &&
+    transfer.ilp.match(/^[0-9A-Za-z-_]+$/),
+    'transfer.ilp must be a base64url string')
 
   return transfer.ilp
 }
