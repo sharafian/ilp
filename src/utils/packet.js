@@ -17,7 +17,7 @@ const parse = (packet) => {
 function getFromTransfer (transfer) {
   assert(transfer, 'transfer must be defined. got: ' + transfer)
   assert(typeof transfer === 'object', 'got invalid transfer: ' + transfer)
-  assert(Buffer.isBuffer(transfer.ilp || transfer.data),
+  assert(Buffer.isBuffer(transfer.ilp),
     'transfer.ilp or transfer.data must be buffer')
 
   return transfer.ilp

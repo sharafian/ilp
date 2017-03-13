@@ -14,8 +14,8 @@ module.exports = class MockPlugin extends EventEmitter2 {
     return {
       prefix: 'test.example.',
       connectors: [ 'test.example.connie' ],
-      precision: 19,
-      scale: 9
+      precision: 10,
+      scale: 2
     }
   }
 

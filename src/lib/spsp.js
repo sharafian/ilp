@@ -4,10 +4,14 @@ const assert = require('assert')
 const agent = require('superagent')
 const uuid = require('uuid/v4')
 const moment = require('moment')
+const BigNumber = require('bignumber.js')
 
 const ILQP = require('./ilqp')
 const PSK = require('./psk')
 const { xor } = require('../utils')
+
+const toInteger = (d, s) => (new BigNumber(d)).shift(s).round().toString()
+const toDecimal = (i, s) => (new BigNumber(i)).shift(-s).toString()
 
 /**
  * @module SPSP
@@ -39,11 +43,16 @@ const _querySPSP = function * (receiver) {
     .set('Accept', 'application/json')).body
 }
 
-const _createPayment = (spsp, quote, id) => {
+const _createPayment = (plugin, spsp, quote, id) => {
+  const sourceAmount =
+    toDecimal(quote.sourceAmount, plugin.getInfo().scale)
+  const destinationAmount =
+    toDecimal(quote.destinationAmount, spsp.ledger_info.scale)
+
   return {
     id: id || uuid(),
-    sourceAmount: quote.sourceAmount,
-    destinationAmount: quote.destinationAmount,
+    sourceAmount: sourceAmount,
+    destinationAmount: destinationAmount,
     destinationAccount: spsp.destination_account,
     connectorAccount: quote.connectorAccount,
     sourceExpiryDuration: quote.sourceExpiryDuration,
@@ -66,11 +75,19 @@ const quote = function * (plugin, {
   assert(xor(sourceAmount, destinationAmount),
     'destinationAmount or sourceAmount must be specified')
 
+  const sourceScale = plugin.getInfo().scale
+  const integerSourceAmount = sourceAmount &&
+    toInteger(sourceAmount, sourceScale)
+
   const spsp = yield _querySPSP(receiver)
+  const destinationScale = spsp.ledger_info.scale
+  const integerDestinationAmount = destinationAmount &&
+    toInteger(destinationAmount, destinationScale)
+
   const quote = yield ILQP.quote(plugin, {
     destinationAddress: spsp.destination_account,
-    destinationAmount,
-    sourceAmount,
+    destinationAmount: integerDestinationAmount,
+    sourceAmount: integerSourceAmount,
     connectors,
     id,
     timeout
@@ -93,7 +110,7 @@ const quote = function * (plugin, {
       ']')
   }
 
-  return _createPayment(spsp, quote, id)
+  return _createPayment(plugin, spsp, quote, id)
 }
 
 function * sendPayment (plugin, payment) {
@@ -107,9 +124,17 @@ function * sendPayment (plugin, payment) {
   assert(payment.sourceExpiryDuration, 'missing sourceExpiryDuration')
   assert(payment.id, 'payment must have an id')
 
+  const sourceScale = plugin.getInfo().scale
+  const integerSourceAmount =
+    toInteger(payment.sourceAmount, sourceScale)
+
+  const destinationScale = payment.spsp.ledger_info.scale
+  const integerDestinationAmount =
+    toInteger(payment.destinationAmount, destinationScale)
+
   const { packet, condition } = PSK.createPacketAndCondition({
     sharedSecret: Buffer.from(payment.spsp.shared_secret, 'base64'),
-    destinationAmount: payment.destinationAmount,
+    destinationAmount: integerDestinationAmount,
     destinationAccount: payment.destinationAccount,
     data: payment.data // optional
   })
@@ -141,7 +166,7 @@ function * sendPayment (plugin, payment) {
   yield plugin.sendTransfer({
     id: payment.id,
     to: payment.connectorAccount,
-    amount: payment.sourceAmount,
+    amount: integerSourceAmount,
     ilp: packet,
     executionCondition: condition,
     expiresAt: moment()

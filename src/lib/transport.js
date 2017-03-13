@@ -118,6 +118,14 @@ function * listen (plugin, {
     }
 
     const parsed = Packet.parseFromTransfer(transfer)
+    if (parsed === undefined) {
+      return yield _reject(plugin, transfer.id, {
+        code: 'S01',
+        name: 'Invalid Packet',
+        message: 'got notification of transfer with invalid ILP packet'
+      })
+    }
+
     const destinationAmount = parsed.amount
     const destinationAccount = parsed.account
     const data = parsed.data

@@ -18,7 +18,10 @@ const spspResponse = {
   shared_secret: 'itsasecret',
   destination_account: 'test.other.alice',
   maximum_destination_amount: '20',
-  minimum_destination_amount: '10'
+  minimum_destination_amount: '10',
+  ledger_info: {
+    scale: 2
+  }
 }
 
 describe('SPSP', function () {
@@ -70,15 +73,17 @@ describe('SPSP', function () {
         connectorAccount: 'test.example.connie',
         destinationAccount: 'test.other.alice',
         sourceExpiryDuration: '10',
-        sourceAmount: '1',
+        // amounts are converted according to src and dest scales of 2
+        sourceAmount: '0.01',
+        destinationAmount: "0.12",
         id: this.id,
-        destinationAmount: "12",
         spsp: spspResponse
       }
 
       this.params = {
         receiver: 'alice@example.com',
-        destinationAmount: '12',
+        // amounts are converted according to src and dest scales of 2
+        destinationAmount: '0.12',
         timeout: 200,
         id: this.id
       }
