@@ -139,7 +139,7 @@ function * sendPayment (plugin, payment) {
     data: payment.data // optional
   })
 
-  const fulfill = new Promise((resolve, reject) => {
+  const listen = new Promise((resolve, reject) => {
     function remove () {
       plugin.removeListener('outgoing_fulfill', fulfill)
       plugin.removeListener('outgoing_cancel', cancel)
@@ -174,7 +174,7 @@ function * sendPayment (plugin, payment) {
       .format()
   })
 
-  return yield fulfill
+  return yield listen
 }
 
 /**
