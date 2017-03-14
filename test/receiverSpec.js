@@ -670,7 +670,7 @@ describe('Receiver Module', function () {
           expect(this.client.rejected).to.be.true
         })
 
-        it('should not fulfill PSK payment with invalid ciphertext blob', function * () {
+        it.skip('should not fulfill PSK payment with invalid ciphertext blob', function * () {
           const sender = createSender({
             client: new MockClient({}),
             uuidSeed: Buffer.from('f73e2739c0f0ff4c9b7cac6678c89a59ee6cb8911b39d39afbf2fef9e77bc9c3', 'hex')
@@ -723,7 +723,7 @@ describe('Receiver Module', function () {
             .to.eventually.deep.equal(['condition-mismatch'])
         })
 
-        it('should reject PSK payments with unencrypted memos', function * () {
+        it('should NOT reject PSK payments with unencrypted memos', function * () {
           const sender = createSender({
             client: new MockClient({}),
             uuidSeed: Buffer.from('f73e2739c0f0ff4c9b7cac6678c89a59ee6cb8911b39d39afbf2fef9e77bc9c3', 'hex')
@@ -746,8 +746,7 @@ describe('Receiver Module', function () {
           this.transfer.data.ilp_header.data.data = request.data
 
           yield expect(this.client.emitAsync('incoming_prepare', this.transfer))
-            .to.eventually.deep.equal(['psk-data-must-be-encrypted-blob'])
-          expect(this.client.rejected).to.be.true
+            .to.eventually.deep.equal(['sent'])
         })
 
         it('should reject payments if reviewPayment throws an error', function * () {

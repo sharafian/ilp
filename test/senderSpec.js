@@ -52,7 +52,7 @@ describe('Sender Module', function () {
       assert.equal(request.expires_at, '1970-01-01T00:00:30.000Z')
     })
 
-    it('should encrypt the payment request data and store as a base64-encoded blob', function () {
+    it.skip('should encrypt the payment request data and store as a base64-encoded blob', function () {
       const secretData = {
         secret: {
           secret1: 'secret',

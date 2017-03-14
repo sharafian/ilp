@@ -8,7 +8,6 @@ const deterministicUuid = require('aguid')
 const crypto = require('crypto')
 const toConditionUri = require('../utils/condition').toConditionUri
 const cryptoHelper = require('../utils/crypto')
-const base64url = require('../utils/base64url')
 
 /**
  * @module Sender
@@ -221,11 +220,8 @@ function createSender (opts) {
     }
 
     paymentRequest.address += '.' + (params.id || uuid.v4())
-
     if (params.data) {
-      paymentRequest.data = {
-        blob: base64url(cryptoHelper.aesEncryptObject(params.data, sharedSecret))
-      }
+      paymentRequest.data = params.data
     }
 
     // Note we are computing the HMAC on the encrypted payload

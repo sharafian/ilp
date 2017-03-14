@@ -301,26 +301,6 @@ function createReceiver (opts) {
       return 'condition-mismatch'
     }
 
-    // Decrypt the memo before submitting it for review
-    // Note we only decrypt the memo after regenerating the fulfillment
-    // because the sender should encrypt-then-MAC
-    if (protocol === 'psk' && paymentRequest.data) {
-      if (Object.keys(paymentRequest.data).length > 1 || !paymentRequest.data.blob) {
-        debug('got PSK payment where the data is not encrypted', paymentRequest)
-        return rejectIncomingTransfer(transfer.id, 'psk-data-must-be-encrypted-blob')
-      }
-      try {
-        paymentRequest.data = cryptoHelper.aesDecryptObject(
-          Buffer.from(paymentRequest.data.blob, 'base64'),
-          sharedSecret)
-        debug('decrypted payment request data:', paymentRequest.data)
-      } catch (e) {
-        // return errors as promises, in case of invalid data
-        debug('got corrupted data', e, paymentRequest.data)
-        return rejectIncomingTransfer(transfer.id, 'psk-corrupted-data')
-      }
-    }
-
     const fulfillment = cc.toFulfillmentUri(conditionPreimage)
     // reviewPromise will resolve to null if we should go ahead and
     // to the rejection message if the payment has been rejected
