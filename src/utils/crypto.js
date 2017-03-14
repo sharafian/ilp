@@ -39,24 +39,34 @@ function hmacJsonForPskCondition (obj, sharedSecret) {
 
 // turn object into encrypted buffer
 function aesEncryptObject (obj, sharedSecret) {
+  return aesEncryptBuffer(Buffer.from(JSON.stringify(obj), 'utf8'))
+}
+
+// turn buffer into encrypted buffer
+function aesEncryptBuffer (buffer, sharedSecret) {
   const pskEncryptionKey = hmac(sharedSecret, PSK_ENCRYPTION_STRING)
   const cipher = crypto.createCipher('aes-256-ctr', pskEncryptionKey)
 
   return Buffer.concat([
-    cipher.update(Buffer.from(JSON.stringify(obj), 'utf8')),
+    cipher.update(buffer),
     cipher.final()
+  ])
+}
+
+// turn buffer into decrypted buffer
+function aesDecryptBuffer (encrypted, sharedSecret) {
+  const pskEncryptionKey = hmac(sharedSecret, PSK_ENCRYPTION_STRING)
+  const decipher = crypto.createDecipher('aes-256-ctr', pskEncryptionKey)
+
+  return Buffer.concat([
+    decipher.update(encrypted),
+    decipher.final()
   ])
 }
 
 // turn base64-encoded encrypted text into parsed object
 function aesDecryptObject (encrypted, sharedSecret) {
-  const pskEncryptionKey = hmac(sharedSecret, PSK_ENCRYPTION_STRING)
-  const decipher = crypto.createDecipher('aes-256-ctr', pskEncryptionKey)
-
-  const decoded = Buffer.concat([
-    decipher.update(Buffer.from(encrypted, 'base64')),
-    decipher.final()
-  ])
+  const decoded = aesDecryptBuffer(Buffer.from(encrypted, 'base64'))
 
   try {
     return JSON.parse(decoded.toString('utf8'))
@@ -69,6 +79,8 @@ module.exports = {
   hmacJsonForPskCondition,
   aesEncryptObject,
   aesDecryptObject,
+  aesEncryptBuffer,
+  aesDecryptBuffer,
   getPskToken,
   getReceiverId,
   getPskSharedSecret

@@ -9,12 +9,13 @@ const debug = require('debug')('ilp:transport')
 const assert = require('assert')
 const base64url = require('../utils/base64url')
 const BigNumber = require('bignumber.js')
-const { safeConnect, omitUndefined } = require('../utils')
+const { safeConnect } = require('../utils')
+const { createDetails, parseDetails } = require('../utils/details')
 
 function _safeDecrypt (data, secret) {
   if (!data) return {}
   try {
-    return cryptoHelper.aesDecryptObject(data, secret)
+    return parseDetails({ details: data, secret })
   } catch (err) {
     debug('decryption error="' + err.message + '"', 'data="' + data + '"')
     return undefined
@@ -27,6 +28,8 @@ function createPacketAndCondition ({
   destinationAccount,
   secret,
   data,
+  headers,
+  unsafeHeaders,
   expiresAt
 }, protocol) {
   assert(typeof destinationAmount === 'string', 'destinationAmount must be a string')
@@ -37,17 +40,24 @@ function createPacketAndCondition ({
   const address = destinationAccount + '.~' + protocol + '.' + receiverId +
     (id ? ('.' + id) : '')
 
-  const blobData = omitUndefined({
-    expires_at: expiresAt,
-    data: data
-  })
+  const details = createDetails({
+    unsafeHeaders: Object.assign({
+      'Key-Id': receiverId, // TODO: is this right?
+      'Key-Algorithm': 'HMAC-SHA-256'
+    }, unsafeHeaders),
 
-  const blob = base64url(cryptoHelper.aesEncryptObject(blobData, secret))
+    headers: Object.assign({
+      'Expires-At': expiresAt
+    }, headers),
+
+    data: data,
+    secret: secret
+  })
 
   const packet = Packet.serialize({
     account: address,
     amount: destinationAmount,
-    data: blob
+    data: details
   })
 
   const condition = base64url(cc.toCondition(
@@ -129,13 +139,15 @@ function * listen (plugin, {
     const destinationAmount = parsed.amount
     const destinationAccount = parsed.account
     const data = parsed.data
-    const decryptedData = _safeDecrypt(data, secret)
+    const details = _safeDecrypt(data, secret)
     const fulfillment = cc.toFulfillment(preimage)
 
     try {
       yield Promise.resolve(callback({
         transfer: transfer,
-        data: decryptedData,
+        unsafeHeaders: details.unsafeHeaders,
+        headers: details.headers,
+        data: details.data,
         destinationAccount,
         destinationAmount,
         fulfill: function () {
@@ -229,9 +241,9 @@ function * _validateOrRejectTransfer ({
     return 'not-my-packet'
   }
 
-  const decryptedData = _safeDecrypt(data, secret)
+  const details = _safeDecrypt(data, secret)
 
-  if (decryptedData === undefined) {
+  if (details === undefined) {
     return yield _reject(plugin, transfer.id, {
       code: 'S01',
       name: 'Invalid Packet',
@@ -239,7 +251,7 @@ function * _validateOrRejectTransfer ({
     })
   }
 
-  const expiresAt = decryptedData.expires_at
+  const expiresAt = details.headers['Expires-At']
   const amount = new BigNumber(transfer.amount)
 
   if (amount.lessThan(destinationAmount)) {

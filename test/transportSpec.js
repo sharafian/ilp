@@ -344,7 +344,13 @@ describe('Transport', function () {
 
       this.callback = (details) => {
         assert.isObject(details.transfer, 'must pass in transfer')
-        assert.isObject(details.data, 'must pass in decrypted data')
+        assert.isObject(details.headers, 'must pass in headers')
+        assert.isString(details.headers['Expires-At'], 'must pass in Expires-At header')
+        assert.isObject(details.unsafeHeaders, 'must pass in unsafeHeaders')
+        assert.isString(details.unsafeHeaders['Key-Id'], 'must pass in Key-Id header')
+        assert.equal(details.unsafeHeaders['Key-Algorithm'], 'HMAC-SHA-256',
+          'must pass in Key-Algorithm header')
+        assert.isObject(JSON.parse(details.data), 'must pass in decrypted data')
         assert.isString(details.destinationAccount, 'must pass in account')
         assert.isString(details.destinationAmount, 'must pass in amount')
         assert.isFunction(details.fulfill, 'fulfill callback must be a function')
@@ -352,7 +358,11 @@ describe('Transport', function () {
       }
 
       yield Transport.listen(this.plugin, this.params, this.callback, 'ipr')
-      yield this.plugin.emitAsync('incoming_prepare', this.transfer)
+      const res = yield this.plugin.emitAsync('incoming_prepare', this.transfer)
+      if (typeof res[0] === 'object') {
+        throw new Error('got error code: ' + JSON.stringify(res))
+      }
+
       yield fulfilled
     })
 
